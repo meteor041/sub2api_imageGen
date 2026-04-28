@@ -793,10 +793,6 @@ h2 {
   box-shadow: 0 26px 60px rgba(15, 23, 42, 0.12);
 }
 
-.ppt-overview-card:not(.active) {
-  opacity: 0.82;
-}
-
 .ppt-deck-card.active,
 .ppt-overview-card.active {
   background: rgba(255, 255, 255, 0.96);
