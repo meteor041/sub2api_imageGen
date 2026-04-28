@@ -603,10 +603,6 @@ function taskImageIdPrefix(taskId: string): string {
   return `${taskId}-`
 }
 
-function stripLoadingImages(images: GeneratedImage[]): GeneratedImage[] {
-  return images.filter((image) => !isImageLoading(image))
-}
-
 function createLoadingTaskImage(task: PendingImageTask): GeneratedImage {
   return {
     id: `${task.taskId}-loading`,
@@ -1733,6 +1729,27 @@ function readPendingImageTasks(): PendingImageTask[] {
   }
 }
 
+function preferredPendingConversationId(
+  workspaceType: 'create' | 'ppt',
+  records: ConversationSummary[]
+): string {
+  const recordIds = new Set(records.map((record) => record.id))
+  for (const task of readPendingImageTasks()) {
+    if (!recordIds.has(task.conversationId)) {
+      continue
+    }
+    if (workspaceType === 'ppt') {
+      const record = records.find((item) => item.id === task.conversationId)
+      if (record?.workspaceType === 'ppt') {
+        return task.conversationId
+      }
+      continue
+    }
+    return task.conversationId
+  }
+  return ''
+}
+
 function writePendingImageTasks(tasks: PendingImageTask[]): void {
   const uniqueTasks = tasks.filter((task, index, items) => (
     items.findIndex((item) => item.taskId === task.taskId) === index
@@ -1789,7 +1806,7 @@ async function saveConversationSnapshot(
     ? (currentConversation.value?.workspaceType || (activeView.value === 'ppt' ? 'ppt' : 'create'))
     : 'create'
 ): Promise<void> {
-  const repairedImages = repairGeneratedImagesFromPptPlan(nextPptState?.plan || null, stripLoadingImages(nextGeneratedImages))
+  const repairedImages = repairGeneratedImagesFromPptPlan(nextPptState?.plan || null, nextGeneratedImages)
   const persistedImages = normalizeGeneratedImages(repairedImages)
   const result = await saveConversationState(conversationId, {
     workspaceType,
@@ -1907,8 +1924,10 @@ async function ensureConversationLoaded(workspaceType: 'create' | 'ppt' = 'creat
   await refreshConversationIndex()
 
   const records = workspaceType === 'ppt' ? pptTaskRecords.value : createTaskRecords.value
+  const pendingConversationId = preferredPendingConversationId(workspaceType, records)
   const savedConversationId = readActiveConversationId(workspaceType)
-  const preferredConversation = records.find((item) => item.id === savedConversationId) ||
+  const preferredConversation = records.find((item) => item.id === pendingConversationId) ||
+    records.find((item) => item.id === savedConversationId) ||
     records[0] ||
     null
 
@@ -3029,6 +3048,7 @@ async function handleSendChat(): Promise<void> {
           ? `编辑任务已创建（${task_id.slice(0, 8)}），正在轮询结果...`
           : `生图任务已创建（${task_id.slice(0, 8)}），正在轮询结果...`
       })
+      await saveConversationSnapshot(originConversationId, chatMessages.value, generatedImages.value)
 
       const task = await waitForImageTask(task_id, (nextTask) => {
         mergeStreamingTaskImages(nextTask)
@@ -3126,7 +3146,9 @@ function extractGeneratedImagesFromTask(task: ImageTaskStatus): GeneratedImage[]
 async function archivePendingImageFailure(pendingTask: PendingImageTask, message: string): Promise<void> {
   const payload = await getConversation(pendingTask.conversationId)
   let nextMessages = payload.state.chatMessages || []
-  const nextImages = normalizeGeneratedImages(payload.state.generatedImages || [])
+  const nextImages = normalizeGeneratedImages(
+    (payload.state.generatedImages || []).filter((image) => !String(image?.id || '').startsWith(taskImageIdPrefix(pendingTask.taskId)))
+  )
   const failedMessage: ChatMessage = {
     id: pendingTask.assistantMessageId || uid('assistant-image-failed'),
     role: 'assistant',
@@ -3319,6 +3341,7 @@ async function handleLocalEditSubmit(): Promise<void> {
     upsertLoadingTaskImage(pendingTask)
     closeImageModal()
     imageTaskLabel.value = `局部修改任务已创建（${task_id.slice(0, 8)}），正在轮询结果...`
+    await saveConversationSnapshot(originConversationId, chatMessages.value, generatedImages.value)
 
     const task = await waitForImageTask(task_id, (nextTask) => {
       mergeStreamingTaskImages(nextTask)
@@ -3390,6 +3413,7 @@ async function handleGenerateImage(): Promise<void> {
     imageTaskLabel.value = sourceImages.length > 0
       ? `编辑任务已创建（${task_id.slice(0, 8)}），正在轮询结果...`
       : `任务已创建（${task_id.slice(0, 8)}），正在轮询结果...`
+    await saveConversationSnapshot(originConversationId, chatMessages.value, generatedImages.value)
 
     const task = await waitForImageTask(task_id, (nextTask) => {
       mergeStreamingTaskImages(nextTask)

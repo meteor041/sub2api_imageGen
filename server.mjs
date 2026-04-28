@@ -2144,6 +2144,10 @@ function buildTaskImageItems(task) {
     .filter((image) => image.dataUrl || image.remoteUrl)
 }
 
+function taskImagePrefix(taskId) {
+  return `${taskId}-`
+}
+
 function replaceOrAppendStoredMessage(messages, message) {
   const index = messages.findIndex((item) => item.id === message.id)
   if (index < 0) {
@@ -2163,10 +2167,12 @@ async function archiveImageTaskToConversation(task) {
   }
 
   const conversation = await loadConversation(task.userId, task.payload.conversation_id)
+  const taskPrefix = taskImagePrefix(task.id)
+  const existingImages = conversation.state.generatedImages.filter((image) => !String(image?.id || '').startsWith(taskPrefix))
   const taskImages = task.status === 'completed' ? buildTaskImageItems(task) : []
   const nextImages = task.status === 'completed'
-    ? [...taskImages, ...conversation.state.generatedImages]
-    : conversation.state.generatedImages
+    ? [...taskImages, ...existingImages]
+    : existingImages
   const firstImage = nextImages[0] || null
   const assistantMessageId = task.payload.assistant_message_id || `assistant-image-${task.id}`
   const content = task.status === 'failed'
@@ -2565,6 +2571,8 @@ async function normalizeStateForStorage(userId, state) {
     storedGeneratedImages.push({
       id: image.id,
       shareKey: image.shareKey || null,
+      taskId: image.taskId || null,
+      status: image.status === 'loading' ? 'loading' : null,
       prompt: image.prompt,
       size: image.size,
       createdAt: image.createdAt,
@@ -2649,6 +2657,8 @@ async function hydrateConversationState(snapshot) {
     generatedImages.push({
       id: image.id,
       shareKey: image.shareKey || undefined,
+      taskId: image.taskId || undefined,
+      status: image.status === 'loading' ? 'loading' : 'ready',
       prompt: image.prompt,
       size: image.size,
       dataUrl,
@@ -3444,13 +3454,6 @@ const server = createServer(async (req, res) => {
       if (!existsSync(filePath)) {
         if (!r2Configured) {
           throw appError(404, 'Asset file not found')
-        }
-        if (wantsDownload) {
-          await streamAssetFromR2(res, asset, {
-            headOnly: req.method === 'HEAD',
-            downloadName
-          })
-          return
         }
         const redirectUrl = assetImageUrl(asset.public_token)
         if (!redirectUrl) {
