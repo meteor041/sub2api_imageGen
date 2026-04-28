@@ -4800,6 +4800,7 @@ onBeforeUnmount(() => {
           <header class="ppt-hero">
             <div class="ppt-hero-copy">
               <h1>{{ pptHeroTitle }}</h1>
+              <span class="ppt-stage-status">{{ pptTaskLabel || (pptSlides.length > 0 ? `当前共 ${pptSlides.length} 页` : '准备开始新的 PPT 任务') }}</span>
             </div>
             <div class="ppt-hero-actions">
               <button class="primary" type="button" :disabled="pptBusy || !selectedKeySecret" @click="handleGeneratePptProject">
@@ -4808,6 +4809,11 @@ onBeforeUnmount(() => {
               </button>
               <button class="ghost mini" type="button" :disabled="!pptPlan" @click="openPptPresentation">
                 ▶ 演示
+              </button>
+              <button class="ghost mini icon-button ppt-settings-link" type="button" aria-label="打开设置" title="设置" @click="pptConfigPanelOpen = true">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M10.3 4.3a1 1 0 0 1 1.4 0l.9.9a1 1 0 0 0 1.02.24l1.23-.37a1 1 0 0 1 1.23.67l.38 1.23a1 1 0 0 0 .74.7l1.25.3a1 1 0 0 1 .74 1.13l-.16 1.28a1 1 0 0 0 .33.99l.97.86a1 1 0 0 1 0 1.48l-.97.86a1 1 0 0 0-.33.99l.16 1.28a1 1 0 0 1-.74 1.13l-1.25.3a1 1 0 0 0-.74.7l-.38 1.23a1 1 0 0 1-1.23.67l-1.23-.37a1 1 0 0 0-1.02.24l-.9.9a1 1 0 0 1-1.4 0l-.9-.9a1 1 0 0 0-1.02-.24l-1.23.37a1 1 0 0 1-1.23-.67l-.38-1.23a1 1 0 0 0-.74-.7l-1.25-.3a1 1 0 0 1-.74-1.13l.16-1.28a1 1 0 0 0-.33-.99l-.97-.86a1 1 0 0 1 0-1.48l.97-.86a1 1 0 0 0 .33-.99l-.16-1.28a1 1 0 0 1 .74-1.13l1.25-.3a1 1 0 0 0 .74-.7l.38-1.23a1 1 0 0 1 1.23-.67l1.23.37a1 1 0 0 0 1.02-.24zM12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" />
+                </svg>
               </button>
               <button
                 class="ghost mini icon-button"
@@ -4896,16 +4902,6 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </div>
-
-          <footer class="ppt-stage-utility">
-            <span class="ppt-stage-status">{{ pptTaskLabel || (pptSlides.length > 0 ? `当前共 ${pptSlides.length} 页` : '准备开始新的 PPT 任务') }}</span>
-            <button class="ghost mini ppt-settings-link" type="button" @click="pptConfigPanelOpen = true">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M10.3 4.3a1 1 0 0 1 1.4 0l.9.9a1 1 0 0 0 1.02.24l1.23-.37a1 1 0 0 1 1.23.67l.38 1.23a1 1 0 0 0 .74.7l1.25.3a1 1 0 0 1 .74 1.13l-.16 1.28a1 1 0 0 0 .33.99l.97.86a1 1 0 0 1 0 1.48l-.97.86a1 1 0 0 0-.33.99l.16 1.28a1 1 0 0 1-.74 1.13l-1.25.3a1 1 0 0 0-.74.7l-.38 1.23a1 1 0 0 1-1.23.67l-1.23-.37a1 1 0 0 0-1.02.24l-.9.9a1 1 0 0 1-1.4 0l-.9-.9a1 1 0 0 0-1.02-.24l-1.23.37a1 1 0 0 1-1.23-.67l-.38-1.23a1 1 0 0 0-.74-.7l-1.25-.3a1 1 0 0 1-.74-1.13l.16-1.28a1 1 0 0 0-.33-.99l-.97-.86a1 1 0 0 1 0-1.48l.97-.86a1 1 0 0 0 .33-.99l-.16-1.28a1 1 0 0 1 .74-1.13l1.25-.3a1 1 0 0 0 .74-.7l.38-1.23a1 1 0 0 1 1.23-.67l1.23.37a1 1 0 0 0 1.02-.24zM12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" />
-              </svg>
-              设置
-            </button>
-          </footer>
         </section>
 
         <div v-if="pptEditorOpen && currentPptSlide" class="ppt-editor-modal-backdrop" @click="closePptSlideEditor"></div>
