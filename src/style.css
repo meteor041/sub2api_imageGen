@@ -191,11 +191,10 @@ h2 {
   top: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: clamp(12px, 1.8vh, 20px);
   height: 100vh;
-  padding: 16px 14px;
-  overflow-x: hidden;
-  overflow-y: auto;
+  padding: clamp(10px, 1.6vh, 16px) 14px;
+  overflow: hidden;
   border-right: 1px solid var(--line);
   background: var(--sidebar-bg);
   backdrop-filter: blur(20px);
@@ -203,7 +202,7 @@ h2 {
 }
 
 .app-shell.sidebar-collapsed .sidebar {
-  padding: 16px 10px;
+  padding: clamp(10px, 1.6vh, 16px) 10px;
   align-items: center;
 }
 
@@ -264,7 +263,7 @@ h2 {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 9px 11px;
+  padding: clamp(8px, 1.2vh, 9px) 11px;
   color: var(--ink);
   background: var(--ghost-bg);
   box-shadow: none;
@@ -296,9 +295,9 @@ h2 {
 
 .sidebar-footer {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   margin-top: auto;
-  padding-top: 4px;
+  padding-top: 2px;
 }
 
 .account-dot {
@@ -315,8 +314,8 @@ h2 {
 }
 
 .brand-logo {
-  width: 44px;
-  height: 44px;
+  width: clamp(40px, 4.8vh, 44px);
+  height: clamp(40px, 4.8vh, 44px);
   border: 1px solid var(--line);
   border-radius: 15px;
   object-fit: cover;
@@ -339,7 +338,7 @@ h2 {
 
 .side-nav {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .side-nav button,
@@ -349,7 +348,7 @@ h2 {
   gap: 10px;
   width: 100%;
   border-radius: 16px;
-  padding: 10px 12px;
+  padding: clamp(8px, 1.2vh, 10px) 12px;
   color: var(--ink);
   background: transparent;
   box-shadow: none;
@@ -393,10 +392,10 @@ h2 {
 
 .sidebar-account {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   border: 1px solid var(--line);
   border-radius: 24px;
-  padding: 16px;
+  padding: clamp(12px, 1.8vh, 16px);
   background: var(--ghost-bg);
 }
 
@@ -404,7 +403,7 @@ h2 {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: clamp(8px, 1.2vh, 10px) 12px;
   color: var(--muted);
   text-decoration: none;
   border-radius: 14px;
