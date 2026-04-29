@@ -48,6 +48,8 @@ import type {
   PptExportRequest,
   PptSlidePlan,
   PptWorkspaceState,
+  SpriteActionGroup,
+  SpriteCharacterProfile,
   SpriteWorkspaceState,
   SshKey,
   UserProfile,
@@ -78,6 +80,20 @@ const imageSizeOptions = [
   { value: '864x1536', label: '9:16 竖图 · 864x1536' },
   { value: '1792x768', label: '21:9 宽屏 · 1792x768' },
   { value: '768x1792', label: '9:21 长竖屏 · 768x1792' }
+]
+const spriteActionPresets = [
+  { value: 'idle', label: '待机' },
+  { value: 'walk', label: '行走' },
+  { value: 'run', label: '奔跑' },
+  { value: 'attack', label: '攻击' },
+  { value: 'hurt', label: '受击' },
+  { value: 'jump', label: '跳跃' }
+]
+const spriteDirectionPresets = [
+  { value: 'front', label: '正面' },
+  { value: 'side', label: '侧面' },
+  { value: 'back', label: '背面' },
+  { value: 'three-quarter', label: '3/4 视角' }
 ]
 const imageSizes = imageSizeOptions.map((option) => option.value)
 const maxImageToolCallsPerTurn = 1
@@ -244,6 +260,24 @@ const pptEditorToolsOpen = ref(false)
 const pptPresentOpen = ref(false)
 const pptImageGenerationConcurrency = 5
 const spriteState = ref<SpriteWorkspaceState | null>(null)
+const spriteCharacterForm = ref({
+  name: '',
+  archetype: '',
+  visualStyle: '',
+  description: '',
+  negativePrompt: '',
+  palette: '',
+  costume: '',
+  bodyType: '',
+  faceTraits: '',
+  hair: '',
+  accessories: '',
+  proportions: ''
+})
+const spriteActionPreset = ref(spriteActionPresets[0].value)
+const spriteDirectionPreset = ref(spriteDirectionPresets[1].value)
+const spriteFrameCount = ref(4)
+const spriteWorkspaceBusy = ref(false)
 
 const imagePrompt = ref('')
 const imageSize = ref(imageSizes[0])
@@ -377,6 +411,20 @@ const currentConversation = computed(() => (
 const createTaskRecords = computed(() => conversations.value.filter((conversation) => conversation.workspaceType === 'create'))
 const pptTaskRecords = computed(() => conversations.value.filter((conversation) => conversation.workspaceType === 'ppt'))
 const spriteTaskRecords = computed(() => conversations.value.filter((conversation) => conversation.workspaceType === 'sprite'))
+const spriteReferenceImage = computed(() => {
+  const referenceImageId = spriteState.value?.character?.referenceImageId
+  if (!referenceImageId) {
+    return null
+  }
+  return generatedImages.value.find((image) => image.id === referenceImageId) || null
+})
+const canSaveSpriteCharacter = computed(() => (
+  Boolean(spriteCharacterForm.value.name.trim() || spriteCharacterForm.value.description.trim())
+))
+const canAddSpriteActionGroup = computed(() => (
+  Boolean(spriteState.value?.character) &&
+  spriteFrameCount.value > 0
+))
 
 const pptSlides = computed(() => pptPlan.value?.slides || [])
 
@@ -1771,21 +1819,87 @@ function emptySpriteWorkspaceState(): SpriteWorkspaceState {
   }
 }
 
+function emptySpriteCharacterForm() {
+  return {
+    name: '',
+    archetype: '',
+    visualStyle: '',
+    description: '',
+    negativePrompt: '',
+    palette: '',
+    costume: '',
+    bodyType: '',
+    faceTraits: '',
+    hair: '',
+    accessories: '',
+    proportions: ''
+  }
+}
+
+function applySpriteCharacterForm(character?: Partial<SpriteCharacterProfile> | null): void {
+  spriteCharacterForm.value = {
+    name: typeof character?.name === 'string' ? character.name : '',
+    archetype: typeof character?.archetype === 'string' ? character.archetype : '',
+    visualStyle: typeof character?.visualStyle === 'string' ? character.visualStyle : '',
+    description: typeof character?.description === 'string' ? character.description : '',
+    negativePrompt: typeof character?.negativePrompt === 'string' ? character.negativePrompt : '',
+    palette: typeof character?.palette === 'string' ? character.palette : '',
+    costume: typeof character?.costume === 'string' ? character.costume : '',
+    bodyType: typeof character?.bodyType === 'string' ? character.bodyType : '',
+    faceTraits: typeof character?.faceTraits === 'string' ? character.faceTraits : '',
+    hair: typeof character?.hair === 'string' ? character.hair : '',
+    accessories: typeof character?.accessories === 'string' ? character.accessories : '',
+    proportions: typeof character?.proportions === 'string' ? character.proportions : ''
+  }
+}
+
+function buildSpriteCharacterProfile(existing?: SpriteCharacterProfile | null): SpriteCharacterProfile {
+  const now = Date.now()
+  return {
+    id: existing?.id || uid('sprite-character'),
+    name: spriteCharacterForm.value.name.trim(),
+    archetype: spriteCharacterForm.value.archetype.trim(),
+    visualStyle: spriteCharacterForm.value.visualStyle.trim(),
+    description: spriteCharacterForm.value.description.trim(),
+    negativePrompt: spriteCharacterForm.value.negativePrompt.trim(),
+    palette: spriteCharacterForm.value.palette.trim(),
+    costume: spriteCharacterForm.value.costume.trim(),
+    bodyType: spriteCharacterForm.value.bodyType.trim(),
+    faceTraits: spriteCharacterForm.value.faceTraits.trim(),
+    hair: spriteCharacterForm.value.hair.trim(),
+    accessories: spriteCharacterForm.value.accessories.trim(),
+    proportions: spriteCharacterForm.value.proportions.trim(),
+    referenceImageId: existing?.referenceImageId || '',
+    referenceImageAssetToken: existing?.referenceImageAssetToken || '',
+    createdAt: existing?.createdAt || now,
+    updatedAt: now
+  }
+}
+
 function applySpriteWorkspaceState(state: SpriteWorkspaceState | null): void {
   spriteState.value = state
     ? {
-      character: state.character || null,
-      actionGroups: Array.isArray(state.actionGroups) ? state.actionGroups : [],
-      sheets: Array.isArray(state.sheets) ? state.sheets : []
+      character: state.character ? { ...state.character } : null,
+      actionGroups: Array.isArray(state.actionGroups)
+        ? state.actionGroups.map((group) => ({
+          ...group,
+          frames: Array.isArray(group.frames) ? [...group.frames] : []
+        }))
+        : [],
+      sheets: Array.isArray(state.sheets) ? state.sheets.map((sheet) => ({ ...sheet })) : []
     }
     : emptySpriteWorkspaceState()
+  applySpriteCharacterForm(spriteState.value?.character || null)
 }
 
 function currentSpriteWorkspaceState(): SpriteWorkspaceState | null {
   return spriteState.value ? {
-    character: spriteState.value.character,
-    actionGroups: [...spriteState.value.actionGroups],
-    sheets: [...spriteState.value.sheets]
+    character: spriteState.value.character ? { ...spriteState.value.character } : null,
+    actionGroups: spriteState.value.actionGroups.map((group) => ({
+      ...group,
+      frames: [...group.frames]
+    })),
+    sheets: spriteState.value.sheets.map((sheet) => ({ ...sheet }))
   } : emptySpriteWorkspaceState()
 }
 
@@ -2182,6 +2296,110 @@ async function handleSpriteTaskSelect(conversationId: string): Promise<void> {
   persistActiveConversationId(conversationId, 'sprite')
   activeView.value = 'sprite'
   await handleConversationSelect()
+}
+
+async function persistSpriteWorkspaceState(successMessage = '', options: { syncCharacterForm?: boolean } = {}): Promise<void> {
+  if (!currentConversationId.value || currentConversation.value?.workspaceType !== 'sprite') {
+    setError('当前没有可保存的角色资产任务。')
+    return
+  }
+
+  spriteWorkspaceBusy.value = true
+  try {
+    const nextSpriteState = currentSpriteWorkspaceState() || emptySpriteWorkspaceState()
+    if (options.syncCharacterForm) {
+      nextSpriteState.character = buildSpriteCharacterProfile(nextSpriteState.character || null)
+    }
+    await saveConversationSnapshot(
+      currentConversationId.value,
+      chatMessages.value,
+      generatedImages.value,
+      null,
+      'sprite',
+      nextSpriteState
+    )
+    if (successMessage) {
+      setSuccess(successMessage)
+    }
+  } catch (error) {
+    setError(error instanceof Error ? error.message : '角色资产保存失败')
+  } finally {
+    spriteWorkspaceBusy.value = false
+  }
+}
+
+async function handleSaveSpriteCharacter(): Promise<void> {
+  if (!canSaveSpriteCharacter.value) {
+    setError('请至少填写角色名或外观描述。')
+    return
+  }
+  const nextSpriteState = currentSpriteWorkspaceState() || emptySpriteWorkspaceState()
+  nextSpriteState.character = buildSpriteCharacterProfile(nextSpriteState.character || null)
+  spriteState.value = nextSpriteState
+  await persistSpriteWorkspaceState('角色设定已保存。')
+}
+
+function resetSpriteCharacterForm(): void {
+  applySpriteCharacterForm(spriteState.value?.character || null)
+}
+
+async function handleAddSpriteActionGroup(): Promise<void> {
+  if (!canAddSpriteActionGroup.value) {
+    setError('请先保存角色设定，再添加动作分组。')
+    return
+  }
+
+  const nextSpriteState = currentSpriteWorkspaceState() || emptySpriteWorkspaceState()
+  const actionGroup: SpriteActionGroup = {
+    id: uid('sprite-action'),
+    action: spriteActionPreset.value,
+    direction: spriteDirectionPreset.value,
+    frameCount: Math.min(Math.max(Number(spriteFrameCount.value) || 1, 1), 12),
+    status: 'draft',
+    frames: []
+  }
+  nextSpriteState.actionGroups = [actionGroup, ...nextSpriteState.actionGroups]
+  spriteState.value = nextSpriteState
+  await persistSpriteWorkspaceState('动作分组已创建。')
+}
+
+async function handleRemoveSpriteActionGroup(actionGroupId: string): Promise<void> {
+  const nextSpriteState = currentSpriteWorkspaceState() || emptySpriteWorkspaceState()
+  nextSpriteState.actionGroups = nextSpriteState.actionGroups.filter((group) => group.id !== actionGroupId)
+  spriteState.value = nextSpriteState
+  await persistSpriteWorkspaceState('动作分组已移除。')
+}
+
+async function handleSetSpriteReference(image: GeneratedImage): Promise<void> {
+  const nextSpriteState = currentSpriteWorkspaceState() || emptySpriteWorkspaceState()
+  const nextCharacter = buildSpriteCharacterProfile(nextSpriteState.character || null)
+  nextCharacter.referenceImageId = image.id
+  nextCharacter.referenceImageAssetToken = image.assetToken || assetTokenFromSource(image.image_url || image.remoteUrl || image.dataUrl || '')
+  nextCharacter.updatedAt = Date.now()
+  nextSpriteState.character = nextCharacter
+  spriteState.value = nextSpriteState
+  await persistSpriteWorkspaceState('已锁定角色参考图。')
+}
+
+async function handleClearSpriteReference(): Promise<void> {
+  if (!spriteState.value?.character) {
+    return
+  }
+  const nextSpriteState = currentSpriteWorkspaceState() || emptySpriteWorkspaceState()
+  nextSpriteState.character = {
+    ...nextSpriteState.character!,
+    referenceImageId: '',
+    referenceImageAssetToken: '',
+    updatedAt: Date.now()
+  }
+  spriteState.value = nextSpriteState
+  await persistSpriteWorkspaceState('已清除角色参考图。')
+}
+
+function spriteActionGroupTitle(group: SpriteActionGroup): string {
+  const actionLabel = spriteActionPresets.find((item) => item.value === group.action)?.label || group.action
+  const directionLabel = spriteDirectionPresets.find((item) => item.value === group.direction)?.label || group.direction
+  return `${actionLabel} · ${directionLabel}`
 }
 
 async function ensureConversationLoaded(workspaceType: WorkspaceType = 'create'): Promise<void> {
@@ -5219,25 +5437,181 @@ onBeforeUnmount(() => {
 
       <div v-else class="creator-layout sprite-layout">
         <section class="creator-canvas">
-          <div class="panel" style="height:100%;display:flex;flex-direction:column;gap:18px;padding:24px">
-            <div>
-              <p class="eyebrow">Sprite Workspace</p>
-              <h1 style="margin:0">角色资产制作</h1>
-              <p style="margin:8px 0 0;color:var(--muted-text, #64748b)">该工作区的会话与创造区、PPT 完全隔离。当前先接入独立会话骨架，后续在这里补角色定稿、参考图锁定、动作帧与 sheet 导出。</p>
-            </div>
-            <div class="panel" style="padding:18px">
-              <strong>{{ currentConversation?.title || '未选择任务' }}</strong>
-              <p style="margin:8px 0 0;color:var(--muted-text, #64748b)">
-                {{
-                  spriteState?.character?.name
-                    ? `当前角色：${spriteState.character.name}`
-                    : '当前还没有角色设定。'
-                }}
-              </p>
-            </div>
-            <div class="panel" style="padding:18px">
-              <strong>下一步</strong>
-              <p style="margin:8px 0 0;color:var(--muted-text, #64748b)">接下来会在这里实现角色设定、参考图锁定、动作分组生成与 sprite sheet 导出。</p>
+          <div class="sprite-workspace">
+            <section class="panel sprite-card sprite-hero-card">
+              <div>
+                <p class="eyebrow">Sprite Workspace</p>
+                <h1 class="sprite-hero-title">角色资产制作</h1>
+                <p class="sprite-hero-copy">该工作区的会话与创造区、PPT 完全隔离。先在这里维护角色设定、锁定参考图，再逐步补动作帧与 sprite sheet 流程。</p>
+              </div>
+              <div class="sprite-hero-meta">
+                <strong>{{ currentConversation?.title || '未选择任务' }}</strong>
+                <span>{{ conversationSaving ? '会话保存中…' : (spriteWorkspaceBusy ? '角色资产保存中…' : '独立角色资产会话') }}</span>
+              </div>
+            </section>
+
+            <section class="panel sprite-card">
+              <div class="sprite-section-header">
+                <div>
+                  <p class="eyebrow">Character</p>
+                  <h2>角色设定</h2>
+                </div>
+                <div class="sprite-inline-actions">
+                  <button class="ghost mini" type="button" :disabled="spriteWorkspaceBusy" @click="resetSpriteCharacterForm">
+                    重置表单
+                  </button>
+                  <button class="secondary mini" type="button" :disabled="spriteWorkspaceBusy || !canSaveSpriteCharacter" @click="handleSaveSpriteCharacter">
+                    保存设定
+                  </button>
+                </div>
+              </div>
+              <div class="sprite-form-grid">
+                <label>
+                  角色名
+                  <input v-model="spriteCharacterForm.name" type="text" maxlength="80" placeholder="例如：雾港游侠" />
+                </label>
+                <label>
+                  角色定位
+                  <input v-model="spriteCharacterForm.archetype" type="text" maxlength="120" placeholder="例如：双枪斥候 / 女主角" />
+                </label>
+                <label class="sprite-form-span-2">
+                  外观描述
+                  <textarea v-model="spriteCharacterForm.description" rows="4" placeholder="描述整体外观、气质、年龄感和辨识度"></textarea>
+                </label>
+                <label>
+                  发型
+                  <input v-model="spriteCharacterForm.hair" type="text" maxlength="120" placeholder="短银发，右侧剃边" />
+                </label>
+                <label>
+                  面部特征
+                  <input v-model="spriteCharacterForm.faceTraits" type="text" maxlength="120" placeholder="锐利眼型，左眉有浅疤" />
+                </label>
+                <label>
+                  服装
+                  <input v-model="spriteCharacterForm.costume" type="text" maxlength="160" placeholder="短斗篷、轻甲、腰间工具包" />
+                </label>
+                <label>
+                  配件 / 武器
+                  <input v-model="spriteCharacterForm.accessories" type="text" maxlength="160" placeholder="双枪、护目镜、机械手套" />
+                </label>
+                <label>
+                  主配色
+                  <input v-model="spriteCharacterForm.palette" type="text" maxlength="120" placeholder="煤灰、铜橙、冰蓝高光" />
+                </label>
+                <label>
+                  体型
+                  <input v-model="spriteCharacterForm.bodyType" type="text" maxlength="120" placeholder="修长、敏捷、轻量级" />
+                </label>
+                <label>
+                  比例
+                  <input v-model="spriteCharacterForm.proportions" type="text" maxlength="120" placeholder="7.5 头身，长腿短躯干" />
+                </label>
+                <label>
+                  画风
+                  <input v-model="spriteCharacterForm.visualStyle" type="text" maxlength="160" placeholder="2D 游戏美术，清晰轮廓，适合角色资产制作" />
+                </label>
+                <label class="sprite-form-span-2">
+                  负面约束
+                  <textarea v-model="spriteCharacterForm.negativePrompt" rows="3" placeholder="例如：避免多余角色、避免复杂背景、避免截断肢体"></textarea>
+                </label>
+              </div>
+            </section>
+
+            <div class="sprite-columns">
+              <section class="panel sprite-card">
+                <div class="sprite-section-header">
+                  <div>
+                    <p class="eyebrow">Reference</p>
+                    <h2>参考图锁定</h2>
+                  </div>
+                  <button
+                    v-if="spriteReferenceImage"
+                    class="ghost mini"
+                    type="button"
+                    :disabled="spriteWorkspaceBusy"
+                    @click="handleClearSpriteReference"
+                  >
+                    清除参考图
+                  </button>
+                </div>
+                <div v-if="spriteReferenceImage" class="sprite-reference-card">
+                  <img
+                    :src="imagePreviewUrl(spriteReferenceImage, galleryPreviewWidth)"
+                    :alt="spriteReferenceImage.prompt"
+                    loading="lazy"
+                    @error="handleGeneratedImageError($event, spriteReferenceImage)"
+                    @click="openImageModal(spriteReferenceImage, generatedImages.findIndex((image) => image.id === spriteReferenceImage.id))"
+                  />
+                  <div class="sprite-reference-copy">
+                    <strong>{{ spriteState?.character?.name || '已锁定参考图' }}</strong>
+                    <span>{{ spriteReferenceImage.size }}</span>
+                    <p>{{ spriteReferenceImage.prompt }}</p>
+                  </div>
+                </div>
+                <p v-else class="empty">当前还没有锁定参考图。后续生成角色设定图后，可以在这里选定一张作为统一参考。</p>
+                <div class="sprite-reference-gallery">
+                  <button
+                    v-for="(image, index) in generatedImages"
+                    :key="imageShareKey(image, index)"
+                    class="sprite-reference-thumb"
+                    type="button"
+                    :class="{ active: spriteState?.character?.referenceImageId === image.id }"
+                    :disabled="isImageLoading(image) || spriteWorkspaceBusy"
+                    @click="handleSetSpriteReference(image)"
+                  >
+                    <img
+                      v-if="imageSourceUrl(image)"
+                      :src="imagePreviewUrl(image, galleryPreviewWidth)"
+                      :alt="image.prompt"
+                      loading="lazy"
+                      @error="handleGeneratedImageError($event, image)"
+                    />
+                    <span>{{ spriteState?.character?.referenceImageId === image.id ? '已锁定' : '设为参考图' }}</span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="panel sprite-card">
+                <div class="sprite-section-header">
+                  <div>
+                    <p class="eyebrow">Actions</p>
+                    <h2>动作分组</h2>
+                  </div>
+                  <button class="secondary mini" type="button" :disabled="spriteWorkspaceBusy || !canAddSpriteActionGroup" @click="handleAddSpriteActionGroup">
+                    添加动作
+                  </button>
+                </div>
+                <div class="sprite-action-form">
+                  <label>
+                    动作
+                    <select v-model="spriteActionPreset">
+                      <option v-for="option in spriteActionPresets" :key="option.value" :value="option.value">{{ option.label }}</option>
+                    </select>
+                  </label>
+                  <label>
+                    朝向
+                    <select v-model="spriteDirectionPreset">
+                      <option v-for="option in spriteDirectionPresets" :key="option.value" :value="option.value">{{ option.label }}</option>
+                    </select>
+                  </label>
+                  <label>
+                    帧数
+                    <input v-model.number="spriteFrameCount" type="number" min="1" max="12" />
+                  </label>
+                </div>
+                <div class="sprite-action-list">
+                  <article v-for="group in spriteState?.actionGroups || []" :key="group.id" class="sprite-action-item">
+                    <div>
+                      <strong>{{ spriteActionGroupTitle(group) }}</strong>
+                      <span>{{ group.frameCount }} 帧 · {{ group.frames.length }} 已挂载</span>
+                    </div>
+                    <button class="ghost mini" type="button" :disabled="spriteWorkspaceBusy" @click="handleRemoveSpriteActionGroup(group.id)">
+                      删除
+                    </button>
+                  </article>
+                  <p v-if="(spriteState?.actionGroups || []).length === 0" class="empty">先保存角色设定，再为该角色规划待机、行走、攻击等动作分组。</p>
+                </div>
+              </section>
             </div>
           </div>
         </section>
