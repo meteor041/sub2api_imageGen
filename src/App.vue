@@ -98,8 +98,7 @@ const spriteActionPresets = [
 const spriteRoleOptions = [
   { value: '主角', label: '主角' },
   { value: '敌人', label: '敌人' },
-  { value: 'NPC', label: 'NPC' },
-  { value: '__custom__', label: '自定义' }
+  { value: 'NPC', label: 'NPC' }
 ]
 const spriteHairOptions = [
   '短发',
@@ -485,11 +484,6 @@ const canGenerateSpriteConcept = computed(() => (
   Boolean(spriteCharacterForm.value.name.trim() || spriteCharacterForm.value.description.trim()) &&
   !imageBusy.value
 ))
-const spriteRolePresetValues = computed(() => spriteRoleOptions.map((option) => option.value).filter((value) => value !== '__custom__'))
-const spriteRoleIsCustom = computed(() => (
-  Boolean(spriteCharacterForm.value.archetype.trim()) &&
-  !spriteRolePresetValues.value.includes(spriteCharacterForm.value.archetype.trim())
-))
 const spriteHairIsCustom = computed(() => (
   Boolean(spriteCharacterForm.value.hair.trim()) &&
   !spriteHairOptions.includes(spriteCharacterForm.value.hair.trim())
@@ -502,10 +496,6 @@ const spriteEquipmentPresetValues = computed(() => spriteEquipmentOptions.map((o
 const spriteEquipmentIsCustom = computed(() => (
   Boolean(spriteCharacterForm.value.accessories.trim()) &&
   !spriteEquipmentPresetValues.value.includes(spriteCharacterForm.value.accessories.trim())
-))
-const spriteVisualStyleIsCustom = computed(() => (
-  Boolean(spriteCharacterForm.value.visualStyle.trim()) &&
-  !spriteVisualStyleOptions.some((option) => option.value === spriteCharacterForm.value.visualStyle.trim())
 ))
 const spritePreviewActionGroups = computed(() => spriteState.value?.actionGroups || [])
 const currentSpritePreviewActionGroup = computed(() => {
@@ -6243,26 +6233,16 @@ onBeforeUnmount(() => {
                 </label>
                 <label>
                   角色类型
-                  <div class="sprite-role-picker">
-                    <button
-                      v-for="option in spriteRoleOptions"
-                      :key="option.value"
-                      class="sprite-role-chip"
-                      :class="{ active: option.value === '__custom__' ? spriteRoleIsCustom : spriteCharacterForm.archetype === option.value }"
-                      type="button"
-                      @click="spriteCharacterForm.archetype = option.value === '__custom__' ? '' : option.value"
-                    >
-                      {{ option.label }}
-                    </button>
-                  </div>
                   <input
-                    v-if="spriteRoleIsCustom || spriteCharacterForm.archetype === ''"
                     v-model="spriteCharacterForm.archetype"
-                    class="sprite-role-custom-input"
+                    list="sprite-role-options"
                     type="text"
                     maxlength="120"
-                    placeholder="输入自定义角色类型"
+                    placeholder="选择或输入角色类型"
                   />
+                  <datalist id="sprite-role-options">
+                    <option v-for="option in spriteRoleOptions" :key="option.value" :value="option.value" />
+                  </datalist>
                 </label>
                 <label class="sprite-form-span-2">
                   外观描述
@@ -6356,21 +6336,20 @@ onBeforeUnmount(() => {
                 </label>
                 <label>
                   画风
-                  <RoundSelect
-                    :model-value="spriteVisualStyleIsCustom ? '__custom__' : (spriteCharacterForm.visualStyle || '2D 游戏美术')"
-                    title="画风"
-                    :options="spriteVisualStyleOptions"
-                    :show-stepper="false"
-                    @update:model-value="(value) => { spriteCharacterForm.visualStyle = value === '__custom__' ? '' : String(value) }"
-                  />
                   <input
-                    v-if="spriteVisualStyleIsCustom || spriteCharacterForm.visualStyle === ''"
                     v-model="spriteCharacterForm.visualStyle"
-                    class="sprite-choice-custom-input"
+                    list="sprite-visual-style-options"
                     type="text"
                     maxlength="160"
-                    placeholder="输入自定义画风"
+                    placeholder="选择或输入画风"
                   />
+                  <datalist id="sprite-visual-style-options">
+                    <option
+                      v-for="option in spriteVisualStyleOptions.filter((item) => item.value !== '__custom__')"
+                      :key="option.value"
+                      :value="option.value"
+                    />
+                  </datalist>
                 </label>
               </div>
             </section>
