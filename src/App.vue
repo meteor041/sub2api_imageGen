@@ -285,6 +285,7 @@ const spriteDirectionPreset = ref(spriteDirectionPresets[1].value)
 const spriteFrameCount = ref(4)
 const spriteWorkspaceBusy = ref(false)
 const spriteConceptSize = ref('1024x1536')
+const spriteReferenceInput = ref<HTMLInputElement | null>(null)
 
 const imagePrompt = ref('')
 const imageSize = ref(imageSizes[0])
@@ -1402,6 +1403,15 @@ function readFileAsDataUrl(file: File): Promise<string> {
   })
 }
 
+function readImageDimensions(dataUrl: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve({ width: image.naturalWidth || image.width, height: image.naturalHeight || image.height })
+    image.onerror = () => reject(new Error('读取图片尺寸失败'))
+    image.src = dataUrl
+  })
+}
+
 function mimeTypeFromDataUrl(dataUrl: string): string {
   const match = /^data:([^;,]+)/i.exec(dataUrl)
   return match?.[1] || 'image/png'
@@ -2511,6 +2521,46 @@ async function handleSetSpriteReference(image: GeneratedImage): Promise<void> {
   nextSpriteState.character = nextCharacter
   spriteState.value = nextSpriteState
   await persistSpriteWorkspaceState('已锁定角色参考图。')
+}
+
+function openSpriteReferenceUpload(): void {
+  spriteReferenceInput.value?.click()
+}
+
+async function handleSpriteReferenceUpload(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement | null
+  const file = input?.files?.[0]
+  if (input) {
+    input.value = ''
+  }
+  if (!file) {
+    return
+  }
+
+  try {
+    if (!currentConversationId.value || currentConversation.value?.workspaceType !== 'sprite') {
+      await ensureConversationLoaded('sprite')
+    }
+    const attachment = await createChatImageAttachment(file)
+    const dimensions = await readImageDimensions(attachment.dataUrl).catch(() => null)
+    const uploadedImage: GeneratedImage = {
+      id: uid('sprite-upload'),
+      shareKey: uid('sprite-upload-share'),
+      prompt: `用户上传参考图：${file.name || 'image.png'}`,
+      size: dimensions ? `${dimensions.width}x${dimensions.height}` : spriteConceptSize.value,
+      dataUrl: attachment.dataUrl,
+      mimeType: attachment.mimeType,
+      createdAt: Date.now()
+    }
+    generatedImages.value = normalizeGeneratedImages([
+      uploadedImage,
+      ...generatedImages.value.filter((image) => image.id !== uploadedImage.id)
+    ])
+    await handleSetSpriteReference(uploadedImage)
+    setSuccess('参考图已上传并锁定。')
+  } catch (error) {
+    setError(error instanceof Error ? error.message : '上传参考图失败')
+  }
 }
 
 async function handleClearSpriteReference(): Promise<void> {
@@ -6109,16 +6159,28 @@ onBeforeUnmount(() => {
                 <p class="eyebrow">Preview</p>
                 <h2>预览区</h2>
               </div>
-              <button
-                v-if="spriteReferenceImage"
-                class="ghost mini"
-                type="button"
-                :disabled="spriteWorkspaceBusy"
-                @click="handleClearSpriteReference"
-              >
-                清除参考图
-              </button>
+              <div class="sprite-inline-actions">
+                <button class="secondary mini" type="button" :disabled="spriteWorkspaceBusy" @click="openSpriteReferenceUpload">
+                  上传参考图
+                </button>
+                <button
+                  v-if="spriteReferenceImage"
+                  class="ghost mini"
+                  type="button"
+                  :disabled="spriteWorkspaceBusy"
+                  @click="handleClearSpriteReference"
+                >
+                  清除参考图
+                </button>
+              </div>
             </div>
+            <input
+              ref="spriteReferenceInput"
+              class="sr-only"
+              type="file"
+              accept="image/*"
+              @change="handleSpriteReferenceUpload"
+            />
             <div v-if="spriteReferenceImage" class="sprite-reference-card">
               <img
                 :src="imagePreviewUrl(spriteReferenceImage, galleryPreviewWidth)"
