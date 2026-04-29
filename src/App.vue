@@ -6397,20 +6397,40 @@ onBeforeUnmount(() => {
                     placeholder="输入自定义装备或武器"
                   />
                 </details>
-                <label>
-                  主配色
+                <details class="sprite-collapsible-field">
+                  <summary>
+                    <span class="sprite-field-label">🎨 主配色</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </summary>
                   <input v-model="spriteCharacterForm.palette" type="text" maxlength="120" placeholder="煤灰、铜橙、冰蓝高光" />
-                </label>
-                <label>
-                  体型
+                </details>
+                <details class="sprite-collapsible-field">
+                  <summary>
+                    <span class="sprite-field-label">🧍 体型</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </summary>
                   <input v-model="spriteCharacterForm.bodyType" type="text" maxlength="120" placeholder="修长、敏捷、轻量级" />
-                </label>
-                <label>
-                  比例
+                </details>
+                <details class="sprite-collapsible-field">
+                  <summary>
+                    <span class="sprite-field-label">📏 比例</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </summary>
                   <input v-model="spriteCharacterForm.proportions" type="text" maxlength="120" placeholder="7.5 头身，长腿短躯干" />
-                </label>
-                <label>
-                  画风
+                </details>
+                <details class="sprite-collapsible-field">
+                  <summary>
+                    <span class="sprite-field-label">🖌️ 画风</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </summary>
                   <input
                     v-model="spriteCharacterForm.visualStyle"
                     list="sprite-visual-style-options"
@@ -6425,7 +6445,7 @@ onBeforeUnmount(() => {
                       :value="option.value"
                     />
                   </datalist>
-                </label>
+                </details>
               </div>
             </section>
 
