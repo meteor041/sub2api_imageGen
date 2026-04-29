@@ -6175,11 +6175,6 @@ onBeforeUnmount(() => {
               </div>
             </section>
 
-            <details class="sprite-preview-prompt">
-              <summary>Prompt</summary>
-              <p>{{ currentSpritePreviewPrompt || '当前还没有可展示的 prompt。' }}</p>
-            </details>
-
             <div class="sprite-reference-gallery">
               <button
                 v-for="(image, index) in generatedImages"

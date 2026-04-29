@@ -4101,16 +4101,14 @@ h2 {
 }
 
 .sprite-preview-stage,
-.sprite-preview-actions,
-.sprite-preview-prompt {
+.sprite-preview-actions {
   display: grid;
   gap: 12px;
   padding-top: 2px;
 }
 
 .sprite-preview-stage h3,
-.sprite-preview-actions h3,
-.sprite-preview-prompt summary {
+.sprite-preview-actions h3 {
   margin: 0;
   font-size: 0.96rem;
 }
@@ -4185,26 +4183,6 @@ h2 {
   flex-wrap: wrap;
   gap: 8px;
   min-height: 36px;
-}
-
-.sprite-preview-prompt {
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
-}
-
-.sprite-preview-prompt summary {
-  cursor: pointer;
-  list-style: none;
-}
-
-.sprite-preview-prompt summary::-webkit-details-marker {
-  display: none;
-}
-
-.sprite-preview-prompt p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.6;
 }
 
 .sprite-reference-gallery {
