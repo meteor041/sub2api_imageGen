@@ -93,6 +93,7 @@ export interface GeneratedImage {
   dataUrl?: string
   remoteUrl?: string
   createdAt: number
+  mimeType?: string
   assetToken?: string
   image_url?: string
 }
@@ -169,6 +170,7 @@ export interface ImageTaskResultItem {
   data_url: string | null
   remote_url: string | null
   image_url: string | null
+  mime_type?: string | null
 }
 
 export interface ImageTaskResult {

@@ -489,6 +489,7 @@ interface DisplayImageSource {
   src: string
   fallbackSrc: string
   downloadSrc: string
+  mimeType?: string
 }
 
 interface GeneratedImageGroupEntry {
@@ -860,7 +861,7 @@ function syncViewportLayout(): void {
   }
 }
 
-function buildDisplayImageSource(primary?: string, fallback?: string, width = conversationPreviewWidth): DisplayImageSource | null {
+function buildDisplayImageSource(primary?: string, fallback?: string, width = conversationPreviewWidth, mimeType = ''): DisplayImageSource | null {
   const downloadSrc = fallback || primary || ''
   if (!downloadSrc) {
     return null
@@ -868,7 +869,8 @@ function buildDisplayImageSource(primary?: string, fallback?: string, width = co
   return {
     src: buildCompressedPreviewUrl(primary || downloadSrc, width) || primary || downloadSrc,
     fallbackSrc: fallback || downloadSrc,
-    downloadSrc
+    downloadSrc,
+    mimeType
   }
 }
 
@@ -3063,21 +3065,26 @@ async function handleManualImageChange(event: Event): Promise<void> {
 
 function messageImages(message: ChatMessage): DisplayImageSource[] {
   const images = (message.attachments || [])
-    .map((image) => buildDisplayImageSource(image.image_url, image.dataUrl, conversationPreviewWidth))
+    .map((image) => buildDisplayImageSource(image.image_url, image.dataUrl, conversationPreviewWidth, image.mimeType || ''))
     .filter((image): image is DisplayImageSource => Boolean(image))
-  const inlineImage = buildDisplayImageSource(message.image_url, message.imageDataUrl, conversationPreviewWidth)
+  const inlineImage = buildDisplayImageSource(
+    message.image_url,
+    message.imageDataUrl,
+    conversationPreviewWidth,
+    message.imageDataUrl ? mimeTypeFromDataUrl(message.imageDataUrl) : ''
+  )
   if (inlineImage) {
     images.push(inlineImage)
   }
   return images
 }
 
-async function downloadImage(source: string, filenameSeed: string, index = 1): Promise<void> {
+async function downloadImage(source: string, filenameSeed: string, index = 1, mimeType = ''): Promise<void> {
   if (!source) {
     return
   }
 
-  const filename = buildImageFilename(filenameSeed, index, inferImageExtension(source))
+  const filename = buildImageFilename(filenameSeed, index, inferImageExtension(source, mimeType))
   const href = buildNativeDownloadHref(source, filename)
   const link = document.createElement('a')
 
@@ -3371,6 +3378,7 @@ function extractGeneratedImages(data: unknown, prompt: string, size: string): Ge
         size,
         dataUrl: b64 ? `data:${imageOutputFormatMimeType(outputFormat)};base64,${b64}` : undefined,
         remoteUrl: remoteUrl || undefined,
+        mimeType: imageOutputFormatMimeType(outputFormat),
         image_url: remoteUrl || undefined,
         createdAt: Date.now()
       } satisfies GeneratedImage
@@ -3389,6 +3397,7 @@ function extractGeneratedImagesFromTask(task: ImageTaskStatus): GeneratedImage[]
       size: item.size,
       dataUrl: item.data_url || undefined,
       remoteUrl: item.remote_url || undefined,
+      mimeType: item.mime_type || (item.data_url ? mimeTypeFromDataUrl(item.data_url) : undefined),
       image_url: item.image_url || undefined,
       createdAt: Date.now()
     } satisfies GeneratedImage))
@@ -5781,7 +5790,7 @@ onBeforeUnmount(() => {
                     type="button"
                     aria-label="下载图片"
                     title="下载"
-                    @click.stop="downloadImage(imageDownloadUrl(displayImage), displayImage.prompt)"
+                    @click.stop="downloadImage(imageDownloadUrl(displayImage), displayImage.prompt, 1, displayImage.mimeType || '')"
                   >
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M12 3v10m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" />
@@ -6044,7 +6053,7 @@ onBeforeUnmount(() => {
                       style="width:30px;height:30px"
                       aria-label="下载图片"
                       title="下载"
-                      @click="downloadImage(image.downloadSrc, message.content || `${message.role}-image`, index + 1)"
+                      @click="downloadImage(image.downloadSrc, message.content || `${message.role}-image`, index + 1, image.mimeType || '')"
                     >
                       <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M12 3v10m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" />
@@ -6174,7 +6183,7 @@ onBeforeUnmount(() => {
                       type="button"
                       aria-label="下载图片"
                       title="下载"
-                      @click="downloadImage(imageDownloadUrl(image), image.prompt)"
+                      @click="downloadImage(imageDownloadUrl(image), image.prompt, 1, image.mimeType || '')"
                     >
                       <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M12 3v10m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" />
@@ -6314,7 +6323,9 @@ onBeforeUnmount(() => {
                 aria-label="下载图片"
                 @click="downloadImage(
                   selectedImage ? imageDownloadUrl(selectedImage) : (selectedLibraryItem?.originalUrl || selectedGalleryItem?.originalUrl || ''),
-                  selectedImage?.prompt || selectedLibraryItem?.prompt || selectedGalleryItem?.prompt || 'gallery-image'
+                  selectedImage?.prompt || selectedLibraryItem?.prompt || selectedGalleryItem?.prompt || 'gallery-image',
+                  1,
+                  selectedImage?.mimeType || selectedStandaloneImage?.mimeType || ''
                 )"
               >
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -6476,7 +6487,7 @@ onBeforeUnmount(() => {
               class="icon-button"
               type="button"
               aria-label="下载图片"
-              @click="downloadImage(selectedStandaloneImage.downloadSrc, selectedStandaloneImage.name || 'uploaded-image')"
+              @click="downloadImage(selectedStandaloneImage.downloadSrc, selectedStandaloneImage.name || 'uploaded-image', 1, selectedStandaloneImage.mimeType || '')"
             >
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 3v10m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" />

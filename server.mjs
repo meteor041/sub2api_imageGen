@@ -1138,6 +1138,7 @@ function normalizeImageResult(data, fallbackPrompt, fallbackSize) {
         prompt: fallbackPrompt,
         size: fallbackSize,
         data_url: b64 ? base64ImageDataUrl(b64, outputFormat) : null,
+        mime_type: imageMimeType(outputFormat),
         remote_url: remoteUrl || null,
         image_url: remoteUrl || null
       }
@@ -1198,6 +1199,7 @@ function createStreamImageItem(task, fields) {
       : task.payload.prompt,
     size: typeof fields?.size === 'string' && fields.size.trim() ? fields.size.trim() : task.payload.size,
     data_url: dataUrl,
+    mime_type: dataUrl ? mimeTypeFromDataUrl(dataUrl, imageMimeType(outputFormat)) : imageMimeType(outputFormat),
     remote_url: remoteUrl || null,
     image_url: remoteUrl || null
   }
@@ -1401,6 +1403,11 @@ function dataUrlToBuffer(dataUrl, fallbackMimeType) {
     buffer: Buffer.from(rawData, match[2] ? 'base64' : 'utf8'),
     mimeType
   }
+}
+
+function mimeTypeFromDataUrl(dataUrl, fallbackMimeType = 'image/png') {
+  const match = /^data:([^;,]+)?(?:;base64)?,/i.exec(String(dataUrl || ''))
+  return match?.[1] || fallbackMimeType
 }
 
 function hashBuffer(buffer) {
@@ -2745,6 +2752,11 @@ function buildTaskImageItems(task) {
       prompt: image.prompt || task.payload.prompt,
       size: image.size || task.payload.size,
       dataUrl: image.data_url || undefined,
+      mimeType: typeof image?.mime_type === 'string' && image.mime_type.trim()
+        ? image.mime_type.trim()
+        : (typeof image?.data_url === 'string' && image.data_url.trim()
+          ? mimeTypeFromDataUrl(image.data_url, 'image/png')
+          : undefined),
       remoteUrl: image.remote_url || undefined,
       image_url: typeof image.image_url === 'string' && image.image_url.trim()
         ? image.image_url.trim()
@@ -2830,6 +2842,7 @@ async function archiveImageTaskToConversation(task) {
             prompt: hydratedImage?.prompt || taskImage.prompt,
             size: hydratedImage?.size || taskImage.size,
             data_url: hydratedImage?.dataUrl || taskImage.dataUrl || null,
+            mime_type: hydratedImage?.mimeType || taskImage.mimeType || originalImage.mime_type || null,
             remote_url: hydratedImage?.remoteUrl || taskImage.remoteUrl || null,
             image_url: hydratedImage?.image_url || taskImage.image_url || null
           }
@@ -3239,12 +3252,12 @@ async function normalizeStateForStorage(userId, state) {
       asset = await persistAsset(userId, 'generated-image', {
         assetToken: derivedAssetToken,
         dataUrl: imageDataUrl,
-        mimeType: 'image/png'
+        mimeType: image.mimeType || mimeTypeFromDataUrl(imageDataUrl, 'image/png')
       })
     } else if (imageDataUrl.startsWith('data:')) {
       asset = await persistAsset(userId, 'generated-image', {
         dataUrl: imageDataUrl,
-        mimeType: 'image/png'
+        mimeType: image.mimeType || mimeTypeFromDataUrl(imageDataUrl, 'image/png')
       })
     }
 
@@ -3327,8 +3340,8 @@ async function hydrateConversationState(snapshot) {
       const hydrated = await hydrateAssetRef({
         assetToken: image.assetToken,
         id: image.id,
-        mimeType: 'image/png',
-        name: `${image.id}.png`
+        mimeType: image.mimeType || 'image/png',
+        name: `${image.id}${extFromMime(image.mimeType || 'image/png') || '.png'}`
       })
       dataUrl = hydrated?.dataUrl
       assetToken = hydrated?.assetToken
@@ -3342,6 +3355,7 @@ async function hydrateConversationState(snapshot) {
       prompt: image.prompt,
       size: image.size,
       dataUrl,
+      mimeType: hydrated?.mimeType || (dataUrl ? mimeTypeFromDataUrl(dataUrl, 'image/png') : undefined),
       remoteUrl: image.remoteUrl || undefined,
       createdAt: Number(image.createdAt) || Date.now(),
       assetToken,
