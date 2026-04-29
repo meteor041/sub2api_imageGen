@@ -6269,7 +6269,7 @@ onBeforeUnmount(() => {
                 <span v-else>当前还没有可预览的角色大图</span>
               </div>
               <div class="sprite-preview-status">
-                <strong>{{ spriteState?.character?.name || '角色预览' }}</strong>
+                <strong>{{ spriteState?.character?.name || '' }}</strong>
                 <span>{{ spritePreviewStatusLabel }}</span>
               </div>
             </section>
