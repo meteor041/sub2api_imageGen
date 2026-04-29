@@ -278,6 +278,7 @@ const spriteActionPreset = ref(spriteActionPresets[0].value)
 const spriteDirectionPreset = ref(spriteDirectionPresets[1].value)
 const spriteFrameCount = ref(4)
 const spriteWorkspaceBusy = ref(false)
+const spriteConceptSize = ref('1024x1536')
 
 const imagePrompt = ref('')
 const imageSize = ref(imageSizes[0])
@@ -424,6 +425,11 @@ const canSaveSpriteCharacter = computed(() => (
 const canAddSpriteActionGroup = computed(() => (
   Boolean(spriteState.value?.character) &&
   spriteFrameCount.value > 0
+))
+const canGenerateSpriteConcept = computed(() => (
+  Boolean(selectedKeySecret.value) &&
+  Boolean(spriteCharacterForm.value.name.trim() || spriteCharacterForm.value.description.trim()) &&
+  !imageBusy.value
 ))
 
 const pptSlides = computed(() => pptPlan.value?.slides || [])
@@ -2400,6 +2406,112 @@ function spriteActionGroupTitle(group: SpriteActionGroup): string {
   const actionLabel = spriteActionPresets.find((item) => item.value === group.action)?.label || group.action
   const directionLabel = spriteDirectionPresets.find((item) => item.value === group.direction)?.label || group.direction
   return `${actionLabel} · ${directionLabel}`
+}
+
+function buildSpriteConceptPrompt(): string {
+  const fields = [
+    spriteCharacterForm.value.name.trim() ? `Character name: ${spriteCharacterForm.value.name.trim()}` : '',
+    spriteCharacterForm.value.archetype.trim() ? `Role: ${spriteCharacterForm.value.archetype.trim()}` : '',
+    spriteCharacterForm.value.description.trim() ? `Appearance: ${spriteCharacterForm.value.description.trim()}` : '',
+    spriteCharacterForm.value.hair.trim() ? `Hair: ${spriteCharacterForm.value.hair.trim()}` : '',
+    spriteCharacterForm.value.faceTraits.trim() ? `Face traits: ${spriteCharacterForm.value.faceTraits.trim()}` : '',
+    spriteCharacterForm.value.costume.trim() ? `Costume: ${spriteCharacterForm.value.costume.trim()}` : '',
+    spriteCharacterForm.value.accessories.trim() ? `Accessories and weapons: ${spriteCharacterForm.value.accessories.trim()}` : '',
+    spriteCharacterForm.value.palette.trim() ? `Color palette: ${spriteCharacterForm.value.palette.trim()}` : '',
+    spriteCharacterForm.value.bodyType.trim() ? `Body type: ${spriteCharacterForm.value.bodyType.trim()}` : '',
+    spriteCharacterForm.value.proportions.trim() ? `Proportions: ${spriteCharacterForm.value.proportions.trim()}` : '',
+    spriteCharacterForm.value.visualStyle.trim() ? `Visual style: ${spriteCharacterForm.value.visualStyle.trim()}` : '',
+    spriteCharacterForm.value.negativePrompt.trim() ? `Avoid: ${spriteCharacterForm.value.negativePrompt.trim()}` : ''
+  ].filter(Boolean)
+
+  return [
+    'Create a full-body 2D game character concept image for sprite production.',
+    fields.join('\n'),
+    'Output requirements: centered full body character, clean silhouette, readable shapes, plain background, no extra characters, no cropped limbs, suitable as a consistent reference image for future sprite generation.'
+  ].filter(Boolean).join('\n\n')
+}
+
+async function handleGenerateSpriteConcept(): Promise<void> {
+  if (!currentConversationId.value || currentConversation.value?.workspaceType !== 'sprite') {
+    await startNewSpriteTask()
+  }
+
+  const originConversationId = currentConversationId.value
+  const apiKey = selectedKeySecret.value
+  if (!originConversationId || currentConversation.value?.workspaceType !== 'sprite') {
+    setError('请先创建角色资产任务。')
+    return
+  }
+  if (!apiKey) {
+    setError('请先选择或创建一个 OpenAI 分组 API Key。')
+    return
+  }
+  if (!canSaveSpriteCharacter.value) {
+    setError('请至少填写角色名或外观描述。')
+    return
+  }
+
+  const nextSpriteState = currentSpriteWorkspaceState() || emptySpriteWorkspaceState()
+  nextSpriteState.character = buildSpriteCharacterProfile(nextSpriteState.character || null)
+  spriteState.value = nextSpriteState
+
+  const prompt = buildSpriteConceptPrompt()
+  imageBusy.value = true
+  imageTaskLabel.value = '正在创建角色设定图任务...'
+  let pendingTask: PendingImageTask | null = null
+  try {
+    await saveConversationSnapshot(
+      originConversationId,
+      chatMessages.value,
+      generatedImages.value,
+      null,
+      'sprite',
+      nextSpriteState
+    )
+
+    const { task_id } = await createImageTask(
+      apiKey,
+      buildImageTaskPayload(prompt, spriteConceptSize.value, [], originConversationId, 'direct')
+    )
+    pendingTask = {
+      taskId: task_id,
+      conversationId: originConversationId,
+      mode: 'generate',
+      prompt,
+      size: spriteConceptSize.value,
+      source: 'direct'
+    }
+    addPendingImageTask(pendingTask)
+    upsertLoadingTaskImage(pendingTask)
+    imageTaskLabel.value = `角色设定图任务已创建（${task_id.slice(0, 8)}），正在轮询结果...`
+
+    const task = await waitForImageTask(task_id, (nextTask) => {
+      mergeStreamingTaskImages(nextTask)
+      imageTaskLabel.value = hasStreamingImageResult(nextTask)
+        ? '正在接收角色设定图预览...'
+        : describeImageTaskStatus(nextTask.status)
+    })
+    if (task.status === 'failed') {
+      throw new Error(task.error || '角色设定图生成失败')
+    }
+    await completePendingImageTask(pendingTask, task)
+    setSuccess('角色设定图已生成，请从结果中选择一张作为参考图。')
+    await refreshBalanceOnly()
+  } catch (error) {
+    if (pendingTask) {
+      removePendingImageTask(pendingTask.taskId)
+      removeTaskImages(pendingTask.taskId)
+      if (currentConversationId.value === pendingTask.conversationId) {
+        await loadConversationById(pendingTask.conversationId, 'sprite')
+      } else {
+        await refreshConversationIndex('sprite')
+      }
+    }
+    setError(error instanceof Error ? error.message : '角色设定图生成失败')
+  } finally {
+    imageBusy.value = false
+    imageTaskLabel.value = ''
+  }
 }
 
 async function ensureConversationLoaded(workspaceType: WorkspaceType = 'create'): Promise<void> {
@@ -5510,10 +5622,22 @@ onBeforeUnmount(() => {
                   画风
                   <input v-model="spriteCharacterForm.visualStyle" type="text" maxlength="160" placeholder="2D 游戏美术，清晰轮廓，适合角色资产制作" />
                 </label>
+                <label>
+                  设定图尺寸
+                  <select v-model="spriteConceptSize">
+                    <option v-for="option in imageSizeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                  </select>
+                </label>
                 <label class="sprite-form-span-2">
                   负面约束
                   <textarea v-model="spriteCharacterForm.negativePrompt" rows="3" placeholder="例如：避免多余角色、避免复杂背景、避免截断肢体"></textarea>
                 </label>
+              </div>
+              <div class="sprite-generate-bar">
+                <button class="secondary" type="button" :disabled="!canGenerateSpriteConcept" @click="handleGenerateSpriteConcept">
+                  {{ imageBusy ? (imageTaskLabel || '处理中...') : '生成角色设定图' }}
+                </button>
+                <span>{{ selectedKeySecret ? '将使用当前已选 API Key 在 sprite 会话中生成参考图。' : '请先选择可用的 OpenAI API Key。' }}</span>
               </div>
             </section>
 
@@ -5549,6 +5673,7 @@ onBeforeUnmount(() => {
                   </div>
                 </div>
                 <p v-else class="empty">当前还没有锁定参考图。后续生成角色设定图后，可以在这里选定一张作为统一参考。</p>
+                <p v-if="generatedImages.length === 0" class="empty">当前 sprite 会话还没有生成图片。先在上方点击“生成角色设定图”。</p>
                 <div class="sprite-reference-gallery">
                   <button
                     v-for="(image, index) in generatedImages"

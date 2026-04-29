@@ -3722,6 +3722,18 @@ h2 {
   grid-column: 1 / -1;
 }
 
+.sprite-generate-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.sprite-generate-bar span {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .sprite-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3836,5 +3848,10 @@ h2 {
   .sprite-action-form,
   .sprite-reference-card {
     grid-template-columns: 1fr;
+  }
+
+  .sprite-generate-bar {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
