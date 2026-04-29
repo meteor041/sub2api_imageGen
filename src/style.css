@@ -3801,38 +3801,6 @@ h2 {
   padding: 22px;
 }
 
-.sprite-hero-card {
-  display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.8fr);
-  align-items: end;
-}
-
-.sprite-hero-title {
-  margin: 0;
-  font-size: clamp(2rem, 4vw, 3.8rem);
-}
-
-.sprite-hero-copy {
-  margin-top: 10px;
-  color: var(--muted);
-  max-width: 60ch;
-}
-
-.sprite-hero-meta {
-  display: grid;
-  gap: 8px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 22px;
-  background: var(--panel-soft-bg);
-}
-
-.sprite-hero-meta span {
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-
 .sprite-section-header {
   display: flex;
   align-items: center;
@@ -3855,6 +3823,49 @@ h2 {
 
 .sprite-form-span-2 {
   grid-column: 1 / -1;
+}
+
+.sprite-detail-box {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--panel-soft-bg);
+}
+
+.sprite-detail-box summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0.9rem 1rem;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+}
+
+.sprite-detail-box summary::-webkit-details-marker {
+  display: none;
+}
+
+.sprite-detail-box summary svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 160ms ease;
+}
+
+.sprite-detail-box[open] summary svg {
+  transform: rotate(180deg);
+}
+
+.sprite-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 0 14px 14px;
 }
 
 .sprite-generate-bar {
@@ -3996,7 +4007,6 @@ h2 {
 }
 
 @media (max-width: 1100px) {
-  .sprite-hero-card,
   .sprite-columns {
     grid-template-columns: 1fr;
   }
@@ -4004,6 +4014,7 @@ h2 {
 
 @media (max-width: 720px) {
   .sprite-form-grid,
+  .sprite-detail-grid,
   .sprite-action-form,
   .sprite-reference-card {
     grid-template-columns: 1fr;

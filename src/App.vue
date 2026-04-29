@@ -5933,18 +5933,6 @@ onBeforeUnmount(() => {
       <div v-else class="creator-layout sprite-layout">
         <section class="creator-canvas">
           <div class="sprite-workspace">
-            <section class="panel sprite-card sprite-hero-card">
-              <div>
-                <p class="eyebrow">Sprite Workspace</p>
-                <h1 class="sprite-hero-title">角色资产制作</h1>
-                <p class="sprite-hero-copy">该工作区的会话与创造区、PPT 完全隔离。先在这里维护角色设定、锁定参考图，再逐步补动作帧与 sprite sheet 流程。</p>
-              </div>
-              <div class="sprite-hero-meta">
-                <strong>{{ currentConversation?.title || '未选择任务' }}</strong>
-                <span>{{ conversationSaving ? '会话保存中…' : (spriteWorkspaceBusy ? '角色资产保存中…' : '独立角色资产会话') }}</span>
-              </div>
-            </section>
-
             <section class="panel sprite-card">
               <div class="sprite-section-header">
                 <div>
@@ -5974,45 +5962,55 @@ onBeforeUnmount(() => {
                   <textarea v-model="spriteCharacterForm.description" rows="4" placeholder="描述整体外观、气质、年龄感和辨识度"></textarea>
                 </label>
                 <label>
-                  发型
-                  <input v-model="spriteCharacterForm.hair" type="text" maxlength="120" placeholder="短银发，右侧剃边" />
-                </label>
-                <label>
-                  面部特征
-                  <input v-model="spriteCharacterForm.faceTraits" type="text" maxlength="120" placeholder="锐利眼型，左眉有浅疤" />
-                </label>
-                <label>
-                  服装
-                  <input v-model="spriteCharacterForm.costume" type="text" maxlength="160" placeholder="短斗篷、轻甲、腰间工具包" />
-                </label>
-                <label>
-                  配件 / 武器
-                  <input v-model="spriteCharacterForm.accessories" type="text" maxlength="160" placeholder="双枪、护目镜、机械手套" />
-                </label>
-                <label>
-                  主配色
-                  <input v-model="spriteCharacterForm.palette" type="text" maxlength="120" placeholder="煤灰、铜橙、冰蓝高光" />
-                </label>
-                <label>
-                  体型
-                  <input v-model="spriteCharacterForm.bodyType" type="text" maxlength="120" placeholder="修长、敏捷、轻量级" />
-                </label>
-                <label>
-                  比例
-                  <input v-model="spriteCharacterForm.proportions" type="text" maxlength="120" placeholder="7.5 头身，长腿短躯干" />
-                </label>
-                <label>
-                  画风
-                  <input v-model="spriteCharacterForm.visualStyle" type="text" maxlength="160" placeholder="2D 游戏美术，清晰轮廓，适合角色资产制作" />
-                </label>
-                <label>
                   设定图尺寸
                   <RoundSelect v-model="spriteConceptSize" title="设定图尺寸" :options="imageSizeOptions" />
                 </label>
-                <label class="sprite-form-span-2">
-                  负面约束
-                  <textarea v-model="spriteCharacterForm.negativePrompt" rows="3" placeholder="例如：避免多余角色、避免复杂背景、避免截断肢体"></textarea>
-                </label>
+                <details class="sprite-detail-box sprite-form-span-2">
+                  <summary>
+                    <span>更多角色细节</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </summary>
+                  <div class="sprite-detail-grid">
+                    <label>
+                      发型
+                      <input v-model="spriteCharacterForm.hair" type="text" maxlength="120" placeholder="短银发，右侧剃边" />
+                    </label>
+                    <label>
+                      面部特征
+                      <input v-model="spriteCharacterForm.faceTraits" type="text" maxlength="120" placeholder="锐利眼型，左眉有浅疤" />
+                    </label>
+                    <label>
+                      服装
+                      <input v-model="spriteCharacterForm.costume" type="text" maxlength="160" placeholder="短斗篷、轻甲、腰间工具包" />
+                    </label>
+                    <label>
+                      配件 / 武器
+                      <input v-model="spriteCharacterForm.accessories" type="text" maxlength="160" placeholder="双枪、护目镜、机械手套" />
+                    </label>
+                    <label>
+                      主配色
+                      <input v-model="spriteCharacterForm.palette" type="text" maxlength="120" placeholder="煤灰、铜橙、冰蓝高光" />
+                    </label>
+                    <label>
+                      体型
+                      <input v-model="spriteCharacterForm.bodyType" type="text" maxlength="120" placeholder="修长、敏捷、轻量级" />
+                    </label>
+                    <label>
+                      比例
+                      <input v-model="spriteCharacterForm.proportions" type="text" maxlength="120" placeholder="7.5 头身，长腿短躯干" />
+                    </label>
+                    <label>
+                      画风
+                      <input v-model="spriteCharacterForm.visualStyle" type="text" maxlength="160" placeholder="2D 游戏美术，清晰轮廓，适合角色资产制作" />
+                    </label>
+                    <label class="sprite-form-span-2">
+                      负面约束
+                      <textarea v-model="spriteCharacterForm.negativePrompt" rows="3" placeholder="例如：避免多余角色、避免复杂背景、避免截断肢体"></textarea>
+                    </label>
+                  </div>
+                </details>
               </div>
               <div class="sprite-generate-bar">
                 <button class="secondary" type="button" :disabled="!canGenerateSpriteConcept" @click="handleGenerateSpriteConcept">
