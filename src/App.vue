@@ -6143,10 +6143,7 @@ onBeforeUnmount(() => {
 
           <section class="panel sprite-card sprite-preview-card">
             <div class="sprite-section-header">
-              <div>
-                <p class="eyebrow">Preview</p>
-                <h2>预览区</h2>
-              </div>
+              <div></div>
               <div class="sprite-inline-actions">
                 <button
                   v-if="spriteReferenceImage"
