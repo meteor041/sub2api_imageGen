@@ -2533,6 +2533,108 @@ function openSpriteFramePreview(imageId: string): void {
   openImageModal(image, imageIndex)
 }
 
+function spriteActionGroupExportSeed(group: SpriteActionGroup): string {
+  const characterName = spriteState.value?.character?.name?.trim() || 'sprite-character'
+  return `${characterName}-${group.action}-${group.direction}`
+}
+
+async function loadImageElementForExport(source: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.crossOrigin = 'anonymous'
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('加载导出图片失败'))
+    image.src = source
+  })
+}
+
+async function exportSpriteSheet(group: SpriteActionGroup): Promise<void> {
+  const orderedFrames = [...group.frames].sort((left, right) => left.frameIndex - right.frameIndex)
+  if (orderedFrames.length === 0) {
+    setError('当前动作分组还没有可导出的帧。')
+    return
+  }
+
+  const frameImages = orderedFrames
+    .map((frame) => {
+      const image = generatedImages.value.find((item) => item.id === frame.imageId)
+      return image ? { frame, image } : null
+    })
+    .filter((entry): entry is { frame: typeof orderedFrames[number]; image: GeneratedImage } => Boolean(entry))
+
+  if (frameImages.length === 0) {
+    setError('当前动作分组缺少可读取的帧图片。')
+    return
+  }
+
+  try {
+    const loaded = await Promise.all(frameImages.map(async ({ frame, image }) => ({
+      frame,
+      image,
+      element: await loadImageElementForExport(imageDownloadUrl(image) || imageSourceUrl(image))
+    })))
+    const frameWidth = Math.max(...loaded.map((item) => item.element.naturalWidth || item.element.width || 1))
+    const frameHeight = Math.max(...loaded.map((item) => item.element.naturalHeight || item.element.height || 1))
+    const columns = Math.max(1, Math.ceil(Math.sqrt(loaded.length)))
+    const rows = Math.max(1, Math.ceil(loaded.length / columns))
+    const canvas = document.createElement('canvas')
+    canvas.width = frameWidth * columns
+    canvas.height = frameHeight * rows
+    const context = canvas.getContext('2d')
+    if (!context) {
+      throw new Error('无法创建导出画布。')
+    }
+
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    const frames = loaded.map((entry, index) => {
+      const column = index % columns
+      const row = Math.floor(index / columns)
+      const x = column * frameWidth
+      const y = row * frameHeight
+      context.drawImage(entry.element, x, y, frameWidth, frameHeight)
+      return {
+        index: entry.frame.frameIndex,
+        imageId: entry.image.id,
+        x,
+        y,
+        w: frameWidth,
+        h: frameHeight
+      }
+    })
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((value) => {
+        if (value) {
+          resolve(value)
+          return
+        }
+        reject(new Error('导出 sprite sheet 失败'))
+      }, 'image/png')
+    })
+
+    const exportSeed = spriteActionGroupExportSeed(group)
+    const metadata = {
+      characterId: spriteState.value?.character?.id || '',
+      characterName: spriteState.value?.character?.name || '',
+      actionGroupId: group.id,
+      action: group.action,
+      direction: group.direction,
+      frameWidth,
+      frameHeight,
+      columns,
+      rows,
+      frameCount: frames.length,
+      frames
+    }
+
+    downloadBlob(blob, buildDocumentFilename(exportSeed, '.png'))
+    downloadTextFile(JSON.stringify(metadata, null, 2), buildDocumentFilename(exportSeed, '.json'), 'application/json;charset=utf-8')
+    setSuccess('sprite sheet 和 json 已导出。')
+  } catch (error) {
+    setError(error instanceof Error ? error.message : '导出 sprite sheet 失败')
+  }
+}
+
 function nextSpriteFrameIndex(group: SpriteActionGroup): number {
   const taken = new Set(group.frames.map((frame) => frame.frameIndex))
   for (let index = 0; index < group.frameCount; index += 1) {
@@ -5997,6 +6099,9 @@ onBeforeUnmount(() => {
                     <div class="sprite-action-item-actions">
                       <button class="secondary mini" type="button" :disabled="imageBusy || spriteWorkspaceBusy || !spriteReferenceImage" @click="handleGenerateSpriteActionFrame(group.id)">
                         生成下一帧
+                      </button>
+                      <button class="ghost mini" type="button" :disabled="group.frames.length === 0" @click="exportSpriteSheet(group)">
+                        导出 Sheet + JSON
                       </button>
                       <button class="ghost mini" type="button" :disabled="spriteWorkspaceBusy" @click="handleRemoveSpriteActionGroup(group.id)">
                         删除
