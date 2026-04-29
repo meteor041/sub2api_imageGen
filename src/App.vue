@@ -6039,6 +6039,9 @@ onBeforeUnmount(() => {
                   <h2>角色基础</h2>
                 </div>
                 <div class="sprite-inline-actions">
+                  <button class="primary sprite-generate-primary" type="button" :disabled="!canGenerateSpriteConcept" @click="handleGenerateSpriteConcept">
+                    {{ imageBusy ? (imageTaskLabel || '处理中...') : '生成角色设定图' }}
+                  </button>
                   <button class="ghost mini" type="button" :disabled="spriteWorkspaceBusy" @click="resetSpriteCharacterForm">
                     重置表单
                   </button>
@@ -6201,11 +6204,6 @@ onBeforeUnmount(() => {
                   负面约束
                   <textarea v-model="spriteCharacterForm.negativePrompt" rows="3" placeholder="例如：避免多余角色、避免复杂背景、避免截断肢体"></textarea>
                 </label>
-              </div>
-              <div class="sprite-generate-bar">
-                <button class="primary sprite-generate-primary" type="button" :disabled="!canGenerateSpriteConcept" @click="handleGenerateSpriteConcept">
-                  {{ imageBusy ? (imageTaskLabel || '处理中...') : '生成角色设定图' }}
-                </button>
               </div>
             </section>
           </div>
