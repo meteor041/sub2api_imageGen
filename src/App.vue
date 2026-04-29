@@ -6036,7 +6036,7 @@ onBeforeUnmount(() => {
               <div class="sprite-section-header">
                 <div>
                   <p class="eyebrow">Character Editor</p>
-                  <h2>角色基础</h2>
+                  <h2>角色设计</h2>
                 </div>
                 <div class="sprite-inline-actions">
                   <div class="sprite-inline-select">
@@ -6085,17 +6085,6 @@ onBeforeUnmount(() => {
                   外观描述
                   <textarea v-model="spriteCharacterForm.description" rows="4" placeholder="描述整体外观、气质、年龄感和辨识度"></textarea>
                 </label>
-              </div>
-            </section>
-
-            <section class="panel sprite-card">
-              <div class="sprite-section-header">
-                <div>
-                  <p class="eyebrow">Appearance</p>
-                  <h2>外观设计</h2>
-                </div>
-              </div>
-              <div class="sprite-detail-grid">
                 <label>
                   发型
                   <input v-model="spriteCharacterForm.hair" type="text" maxlength="120" placeholder="短银发，右侧剃边" />
