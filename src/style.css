@@ -3821,7 +3821,7 @@ h2 {
 
 .sprite-studio-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(420px, 1fr);
   gap: 12px;
   flex: 1;
   min-height: 0;
@@ -4265,7 +4265,7 @@ h2 {
 
 @media (max-width: 1100px) {
   .sprite-studio-layout {
-    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.9fr);
   }
 
   .sprite-reference-card {

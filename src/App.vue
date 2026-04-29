@@ -6080,6 +6080,139 @@ onBeforeUnmount(() => {
       </template>
 
       <div v-else class="sprite-studio-layout">
+        <aside class="sprite-preview-column">
+          <details class="panel sprite-recent-projects">
+            <summary>
+              <div>
+                <p class="eyebrow">Recent Projects</p>
+                <strong>最近项目</strong>
+              </div>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </summary>
+            <div class="sprite-recent-projects-list">
+              <button class="secondary mini" type="button" :disabled="conversationBusy" @click="startNewSpriteTask">
+                新建任务
+              </button>
+              <button
+                v-for="conversation in spriteTaskRecords"
+                :key="conversation.id"
+                class="session-button"
+                :class="{ active: conversation.id === currentConversationId }"
+                type="button"
+                :disabled="conversationBusy"
+                @click="handleSpriteTaskSelect(conversation.id)"
+              >
+                <strong>{{ conversation.title }}</strong>
+                <span>{{ conversation.updatedAt }}</span>
+              </button>
+              <p v-if="spriteTaskRecords.length === 0" class="empty">还没有角色资产任务。</p>
+            </div>
+          </details>
+
+          <section class="panel sprite-card sprite-preview-card">
+            <div class="sprite-section-header">
+              <div>
+                <p class="eyebrow">Preview</p>
+                <h2>预览区</h2>
+              </div>
+              <div class="sprite-inline-actions">
+                <button class="secondary mini" type="button" :disabled="spriteWorkspaceBusy" @click="openSpriteReferenceUpload">
+                  上传参考图
+                </button>
+                <button
+                  v-if="spriteReferenceImage"
+                  class="ghost mini"
+                  type="button"
+                  :disabled="spriteWorkspaceBusy"
+                  @click="handleClearSpriteReference"
+                >
+                  清除参考图
+                </button>
+              </div>
+            </div>
+            <input
+              ref="spriteReferenceInput"
+              class="sr-only"
+              type="file"
+              accept="image/*"
+              @change="handleSpriteReferenceUpload"
+            />
+            <section class="sprite-preview-stage">
+              <div class="sprite-preview-canvas" :class="{ empty: !currentSpritePreviewImage }">
+                <img
+                  v-if="currentSpritePreviewImage"
+                  :src="imagePreviewUrl(currentSpritePreviewImage, modalPreviewWidth)"
+                  :alt="currentSpritePreviewImage.prompt"
+                  loading="lazy"
+                  @error="handleGeneratedImageError($event, currentSpritePreviewImage)"
+                  @click="currentSpritePreviewImage.id ? openSpriteFramePreview(currentSpritePreviewImage.id) : undefined"
+                />
+                <span v-else>当前还没有可预览的角色大图</span>
+              </div>
+              <div class="sprite-preview-status">
+                <strong>{{ spriteState?.character?.name || '' }}</strong>
+                <span>{{ spritePreviewStatusLabel }}</span>
+              </div>
+            </section>
+
+            <section class="sprite-preview-actions">
+              <h3>动作预览</h3>
+              <div class="sprite-preview-tabs">
+                <button
+                  v-for="group in spritePreviewActionGroups"
+                  :key="group.id"
+                  class="sprite-preview-tab"
+                  :class="{ active: currentSpritePreviewActionGroup?.id === group.id }"
+                  type="button"
+                  @click="spritePreviewActionGroupId = group.id"
+                >
+                  {{ group.action }}
+                </button>
+              </div>
+              <div class="sprite-preview-frame-strip">
+                <button
+                  v-for="frame in currentSpritePreviewActionGroup?.frames || []"
+                  :key="frame.id"
+                  class="sprite-preview-frame-box"
+                  type="button"
+                  @click="openSpriteFramePreview(frame.imageId)"
+                >
+                  {{ frame.frameIndex + 1 }}
+                </button>
+                <span v-if="(currentSpritePreviewActionGroup?.frames || []).length === 0" class="empty">帧条：暂无帧</span>
+              </div>
+            </section>
+
+            <details class="sprite-preview-prompt">
+              <summary>Prompt</summary>
+              <p>{{ currentSpritePreviewPrompt || '当前还没有可展示的 prompt。' }}</p>
+            </details>
+
+            <div class="sprite-reference-gallery">
+              <button
+                v-for="(image, index) in generatedImages"
+                :key="imageShareKey(image, index)"
+                class="sprite-reference-thumb"
+                type="button"
+                :class="{ active: spriteState?.character?.referenceImageId === image.id }"
+                :disabled="isImageLoading(image) || spriteWorkspaceBusy"
+                @click="handleSetSpriteReference(image)"
+              >
+                <img
+                  v-if="imageSourceUrl(image)"
+                  :src="imagePreviewUrl(image, galleryPreviewWidth)"
+                  :alt="image.prompt"
+                  loading="lazy"
+                  @error="handleGeneratedImageError($event, image)"
+                />
+                <span>{{ spriteState?.character?.referenceImageId === image.id ? '已锁定' : '设为参考图' }}</span>
+              </button>
+            </div>
+          </section>
+        </aside>
+
         <section class="sprite-edit-column">
           <div class="sprite-workspace">
             <section class="panel sprite-card">
@@ -6318,139 +6451,6 @@ onBeforeUnmount(() => {
             </section>
           </div>
         </section>
-
-        <aside class="sprite-preview-column">
-          <details class="panel sprite-recent-projects">
-            <summary>
-              <div>
-                <p class="eyebrow">Recent Projects</p>
-                <strong>最近项目</strong>
-              </div>
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </summary>
-            <div class="sprite-recent-projects-list">
-              <button class="secondary mini" type="button" :disabled="conversationBusy" @click="startNewSpriteTask">
-                新建任务
-              </button>
-              <button
-                v-for="conversation in spriteTaskRecords"
-                :key="conversation.id"
-                class="session-button"
-                :class="{ active: conversation.id === currentConversationId }"
-                type="button"
-                :disabled="conversationBusy"
-                @click="handleSpriteTaskSelect(conversation.id)"
-              >
-                <strong>{{ conversation.title }}</strong>
-                <span>{{ conversation.updatedAt }}</span>
-              </button>
-              <p v-if="spriteTaskRecords.length === 0" class="empty">还没有角色资产任务。</p>
-            </div>
-          </details>
-
-          <section class="panel sprite-card sprite-preview-card">
-            <div class="sprite-section-header">
-              <div>
-                <p class="eyebrow">Preview</p>
-                <h2>预览区</h2>
-              </div>
-              <div class="sprite-inline-actions">
-                <button class="secondary mini" type="button" :disabled="spriteWorkspaceBusy" @click="openSpriteReferenceUpload">
-                  上传参考图
-                </button>
-                <button
-                  v-if="spriteReferenceImage"
-                  class="ghost mini"
-                  type="button"
-                  :disabled="spriteWorkspaceBusy"
-                  @click="handleClearSpriteReference"
-                >
-                  清除参考图
-                </button>
-              </div>
-            </div>
-            <input
-              ref="spriteReferenceInput"
-              class="sr-only"
-              type="file"
-              accept="image/*"
-              @change="handleSpriteReferenceUpload"
-            />
-            <section class="sprite-preview-stage">
-              <div class="sprite-preview-canvas" :class="{ empty: !currentSpritePreviewImage }">
-                <img
-                  v-if="currentSpritePreviewImage"
-                  :src="imagePreviewUrl(currentSpritePreviewImage, modalPreviewWidth)"
-                  :alt="currentSpritePreviewImage.prompt"
-                  loading="lazy"
-                  @error="handleGeneratedImageError($event, currentSpritePreviewImage)"
-                  @click="currentSpritePreviewImage.id ? openSpriteFramePreview(currentSpritePreviewImage.id) : undefined"
-                />
-                <span v-else>当前还没有可预览的角色大图</span>
-              </div>
-              <div class="sprite-preview-status">
-                <strong>{{ spriteState?.character?.name || '' }}</strong>
-                <span>{{ spritePreviewStatusLabel }}</span>
-              </div>
-            </section>
-
-            <section class="sprite-preview-actions">
-              <h3>动作预览</h3>
-              <div class="sprite-preview-tabs">
-                <button
-                  v-for="group in spritePreviewActionGroups"
-                  :key="group.id"
-                  class="sprite-preview-tab"
-                  :class="{ active: currentSpritePreviewActionGroup?.id === group.id }"
-                  type="button"
-                  @click="spritePreviewActionGroupId = group.id"
-                >
-                  {{ group.action }}
-                </button>
-              </div>
-              <div class="sprite-preview-frame-strip">
-                <button
-                  v-for="frame in currentSpritePreviewActionGroup?.frames || []"
-                  :key="frame.id"
-                  class="sprite-preview-frame-box"
-                  type="button"
-                  @click="openSpriteFramePreview(frame.imageId)"
-                >
-                  {{ frame.frameIndex + 1 }}
-                </button>
-                <span v-if="(currentSpritePreviewActionGroup?.frames || []).length === 0" class="empty">帧条：暂无帧</span>
-              </div>
-            </section>
-
-            <details class="sprite-preview-prompt">
-              <summary>Prompt</summary>
-              <p>{{ currentSpritePreviewPrompt || '当前还没有可展示的 prompt。' }}</p>
-            </details>
-
-            <div class="sprite-reference-gallery">
-              <button
-                v-for="(image, index) in generatedImages"
-                :key="imageShareKey(image, index)"
-                class="sprite-reference-thumb"
-                type="button"
-                :class="{ active: spriteState?.character?.referenceImageId === image.id }"
-                :disabled="isImageLoading(image) || spriteWorkspaceBusy"
-                @click="handleSetSpriteReference(image)"
-              >
-                <img
-                  v-if="imageSourceUrl(image)"
-                  :src="imagePreviewUrl(image, galleryPreviewWidth)"
-                  :alt="image.prompt"
-                  loading="lazy"
-                  @error="handleGeneratedImageError($event, image)"
-                />
-                <span>{{ spriteState?.character?.referenceImageId === image.id ? '已锁定' : '设为参考图' }}</span>
-              </button>
-            </div>
-          </section>
-        </aside>
       </div>
     </section>
 
