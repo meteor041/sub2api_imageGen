@@ -355,6 +355,12 @@ h2 {
   min-width: 0;
 }
 
+.app-shell.sidebar-collapsed .sidebar-top {
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
 .sidebar-collapse-btn {
   display: inline-grid;
   flex: 0 0 auto;
@@ -391,6 +397,10 @@ h2 {
   align-items: center;
   min-width: 0;
   overflow: hidden;
+}
+
+.app-shell.sidebar-collapsed .brand {
+  justify-content: center;
 }
 
 .brand-text {
