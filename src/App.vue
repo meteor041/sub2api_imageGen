@@ -5615,7 +5615,7 @@ onBeforeUnmount(() => {
         <div class="brand">
           <img class="brand-logo" :src="logoUrl" alt="MeteorAPI logo" loading="lazy" />
           <div v-if="!mainSidebarCollapsed" class="brand-text">
-            <strong>Image Lab</strong>
+            <strong>Figuro</strong>
             <span>MeteorAPI</span>
           </div>
         </div>
