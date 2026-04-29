@@ -13,10 +13,12 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   title?: string
   placeholder?: string
+  showStepper?: boolean
 }>(), {
   disabled: false,
   title: '',
-  placeholder: '请选择'
+  placeholder: '请选择',
+  showStepper: true
 })
 
 const emit = defineEmits<{
@@ -29,7 +31,7 @@ const selectedIndex = computed(() => props.options.findIndex((option) => option.
 const selectedOption = computed(() => (
   selectedIndex.value >= 0 ? props.options[selectedIndex.value] : null
 ))
-const canStep = computed(() => !props.disabled && props.options.length > 1)
+const canStep = computed(() => props.showStepper && !props.disabled && props.options.length > 1)
 
 function closeMenu(): void {
   if (detailsRef.value) {
@@ -78,7 +80,7 @@ function stepSelection(offset: number): void {
         </button>
       </div>
     </details>
-    <div class="round-select-stepper">
+    <div v-if="showStepper" class="round-select-stepper">
       <button
         type="button"
         :disabled="!canStep"

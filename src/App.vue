@@ -5617,6 +5617,7 @@ onBeforeUnmount(() => {
             class="gallery-sort-select"
             title="排序方式"
             :options="gallerySortOptions"
+            :show-stepper="false"
           />
         </div>
         <button
