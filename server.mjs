@@ -1482,6 +1482,16 @@ function assetImageUrl(token) {
   return key ? `${imageCdnBase}/${key}` : ''
 }
 
+function isAllowedExternalDownloadUrl(value) {
+  try {
+    const targetUrl = new URL(String(value || '').trim())
+    const cdnUrl = new URL(imageCdnBase)
+    return targetUrl.protocol === 'https:' && targetUrl.origin === cdnUrl.origin
+  } catch {
+    return false
+  }
+}
+
 function assetObjectKey(token) {
   const key = typeof token === 'string' ? token.trim().replace(/^\/+/, '') : ''
   if (!key) {
@@ -4180,6 +4190,29 @@ const server = createServer(async (req, res) => {
         return
       }
       await sendSshTaskImageDownload(req, res, taskId, url.searchParams.get('index'))
+      return
+    }
+
+    if ((req.method === 'GET' || req.method === 'HEAD') && url.pathname === '/api/playground/download') {
+      const sourceUrl = typeof url.searchParams.get('url') === 'string' ? url.searchParams.get('url') : ''
+      const downloadName = typeof url.searchParams.get('filename') === 'string' ? url.searchParams.get('filename') : ''
+      if (!isAllowedExternalDownloadUrl(sourceUrl)) {
+        throw appError(400, 'Unsupported download URL')
+      }
+      if (req.method === 'HEAD') {
+        res.writeHead(200)
+        res.end()
+        return
+      }
+      const { buffer, mimeType } = await fetchImageUrlBuffer(sourceUrl, 'image/png')
+      const filename = sanitizeDownloadFilename(downloadName) || `playground-image${extFromMime(mimeType)}`
+      res.writeHead(200, {
+        'Cache-Control': 'private, no-store',
+        'Content-Disposition': buildAttachmentDisposition(filename),
+        'Content-Length': String(buffer.length),
+        'Content-Type': mimeType || 'image/png'
+      })
+      res.end(buffer)
       return
     }
 

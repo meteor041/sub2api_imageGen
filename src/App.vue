@@ -668,17 +668,6 @@ function imageDownloadUrl(image: GeneratedImage): string {
   return imageFallbackUrl(image) || imageSourceUrl(image)
 }
 
-function isSameOriginUrl(value: string): boolean {
-  if (!value || value.startsWith('data:') || value.startsWith('blob:')) {
-    return true
-  }
-  try {
-    return new URL(value, window.location.href).origin === window.location.origin
-  } catch {
-    return false
-  }
-}
-
 function assetTokenFromSource(source: string): string {
   if (!source || source.startsWith('data:') || source.startsWith('blob:')) {
     return ''
@@ -726,6 +715,15 @@ function buildNativeDownloadHref(source: string, filename = ''): string {
         url.searchParams.set('filename', filename)
       }
       return `${url.pathname}${url.search}${url.hash}`
+    }
+
+    if (/^https?:$/i.test(url.protocol)) {
+      const downloadUrl = new URL('/api/playground/download', window.location.href)
+      downloadUrl.searchParams.set('url', url.toString())
+      if (filename.trim()) {
+        downloadUrl.searchParams.set('filename', filename)
+      }
+      return `${downloadUrl.pathname}${downloadUrl.search}${downloadUrl.hash}`
     }
   } catch {
     return source
@@ -3082,15 +3080,11 @@ async function downloadImage(source: string, filenameSeed: string, index = 1): P
   const filename = buildImageFilename(filenameSeed, index, inferImageExtension(source))
   const href = buildNativeDownloadHref(source, filename)
   const link = document.createElement('a')
-  const shouldOpenInNewTab = !isSameOriginUrl(href)
 
   link.href = href
   link.download = filename
   link.rel = 'noopener noreferrer'
   link.style.display = 'none'
-  if (shouldOpenInNewTab) {
-    link.target = '_blank'
-  }
 
   document.body.appendChild(link)
 
