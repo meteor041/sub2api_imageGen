@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import RoundSelect from './components/RoundSelect.vue'
 import logoUrl from '../asset/logo.png'
 import {
   batchUpdateLibraryItems,
@@ -80,6 +81,11 @@ const imageSizeOptions = [
   { value: '864x1536', label: '9:16 竖图 · 864x1536' },
   { value: '1792x768', label: '21:9 宽屏 · 1792x768' },
   { value: '768x1792', label: '9:21 长竖屏 · 768x1792' }
+]
+const textModelOptions = textModels.map((model) => ({ value: model, label: model }))
+const gallerySortOptions = [
+  { value: 'latest', label: '最新发布' },
+  { value: 'likes', label: '点赞最多' }
 ]
 const spriteActionPresets = [
   { value: 'idle', label: '待机' },
@@ -306,6 +312,13 @@ const openAiGroups = computed(() =>
 const openAiApiKeys = computed(() =>
   apiKeys.value.filter((key) => key.status === 'active' && key.group?.platform === 'openai')
 )
+
+const openAiApiKeyOptions = computed(() => (
+  openAiApiKeys.value.map((key) => ({
+    value: key.id,
+    label: `${key.name} / ${key.group?.name || 'OpenAI'}`
+  }))
+))
 
 const selectedApiKey = computed(() => {
   if (selectedApiKeyId.value == null) {
@@ -5599,10 +5612,12 @@ onBeforeUnmount(() => {
             </svg>
             <input v-model.trim="galleryUserQuery" type="search" placeholder="搜索用户" />
           </label>
-          <select v-model="gallerySort" class="gallery-sort-select" title="排序方式">
-            <option value="latest">最新发布</option>
-            <option value="likes">点赞最多</option>
-          </select>
+          <RoundSelect
+            v-model="gallerySort"
+            class="gallery-sort-select"
+            title="排序方式"
+            :options="gallerySortOptions"
+          />
         </div>
         <button
           class="ghost gallery-refresh-button"
@@ -5991,9 +6006,7 @@ onBeforeUnmount(() => {
                 </label>
                 <label>
                   设定图尺寸
-                  <select v-model="spriteConceptSize">
-                    <option v-for="option in imageSizeOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-                  </select>
+                  <RoundSelect v-model="spriteConceptSize" title="设定图尺寸" :options="imageSizeOptions" />
                 </label>
                 <label class="sprite-form-span-2">
                   负面约束
@@ -6076,15 +6089,11 @@ onBeforeUnmount(() => {
                 <div class="sprite-action-form">
                   <label>
                     动作
-                    <select v-model="spriteActionPreset">
-                      <option v-for="option in spriteActionPresets" :key="option.value" :value="option.value">{{ option.label }}</option>
-                    </select>
+                    <RoundSelect v-model="spriteActionPreset" title="动作" :options="spriteActionPresets" />
                   </label>
                   <label>
                     朝向
-                    <select v-model="spriteDirectionPreset">
-                      <option v-for="option in spriteDirectionPresets" :key="option.value" :value="option.value">{{ option.label }}</option>
-                    </select>
+                    <RoundSelect v-model="spriteDirectionPreset" title="朝向" :options="spriteDirectionPresets" />
                   </label>
                   <label>
                     帧数
@@ -6571,9 +6580,7 @@ onBeforeUnmount(() => {
                 <span class="ppt-slide-label">生成设置</span>
                 <label>
                   模型
-                  <select v-model="pptSelectedModel">
-                    <option v-for="model in textModels" :key="model" :value="model">{{ model }}</option>
-                  </select>
+                  <RoundSelect v-model="pptSelectedModel" title="模型" :options="textModelOptions" />
                 </label>
                 <label>
                   页数
@@ -6614,11 +6621,12 @@ onBeforeUnmount(() => {
                 <div class="ppt-advanced-settings-body">
                   <label>
                     API Key
-                    <select v-model.number="selectedApiKeyId" :disabled="openAiApiKeys.length === 0">
-                      <option v-for="key in openAiApiKeys" :key="key.id" :value="key.id">
-                        {{ key.name }} / {{ key.group?.name || 'OpenAI' }}
-                      </option>
-                    </select>
+                    <RoundSelect
+                      v-model="selectedApiKeyId"
+                      title="API Key"
+                      :options="openAiApiKeyOptions"
+                      :disabled="openAiApiKeys.length === 0"
+                    />
                   </label>
                 </div>
               </details>
@@ -6752,9 +6760,12 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="canvas-controls">
-              <select v-if="createMode === 'chat'" v-model="selectedTextModel" title="文字模型">
-                <option v-for="model in textModels" :key="model" :value="model">{{ model }}</option>
-              </select>
+              <RoundSelect
+                v-if="createMode === 'chat'"
+                v-model="selectedTextModel"
+                title="文字模型"
+                :options="textModelOptions"
+              />
               <details v-if="createMode === 'chat' && displayImageCompareGroup" class="compare-inline-menu">
                 <summary>
                   <strong>版本 {{ displayImageComparePosition }}</strong>
@@ -6776,16 +6787,18 @@ onBeforeUnmount(() => {
                   </button>
                 </div>
               </details>
-              <select v-if="createMode === 'direct'" v-model="imageSize" title="图片尺寸">
-                <option v-for="option in imageSizeOptions" :key="option.value" :value="option.value">
-                  {{ option.label }}
-                </option>
-              </select>
-              <select v-model.number="selectedApiKeyId" :disabled="openAiApiKeys.length === 0" title="API Key">
-                <option v-for="key in openAiApiKeys" :key="key.id" :value="key.id">
-                  {{ key.name }} / {{ key.group?.name || 'OpenAI' }}
-                </option>
-              </select>
+              <RoundSelect
+                v-if="createMode === 'direct'"
+                v-model="imageSize"
+                title="图片尺寸"
+                :options="imageSizeOptions"
+              />
+              <RoundSelect
+                v-model="selectedApiKeyId"
+                title="API Key"
+                :options="openAiApiKeyOptions"
+                :disabled="openAiApiKeys.length === 0"
+              />
               <button
                 class="canvas-icon-btn"
                 type="button"
