@@ -6368,7 +6368,7 @@ onBeforeUnmount(() => {
                   </summary>
                   <input v-model="spriteCharacterForm.costume" type="text" maxlength="160" placeholder="短斗篷、轻甲、腰间工具包" />
                 </details>
-                <details class="sprite-form-span-2 sprite-collapsible-field">
+                <details class="sprite-collapsible-field">
                   <summary>
                     <span class="sprite-field-label">⚔️ 装备</span>
                     <svg viewBox="0 0 24 24" aria-hidden="true">
