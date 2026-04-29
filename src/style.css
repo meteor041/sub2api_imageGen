@@ -3863,6 +3863,40 @@ h2 {
   padding: 22px;
 }
 
+.sprite-editor-shell {
+  display: grid;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.sprite-editor-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 14px 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.sprite-editor-tab {
+  padding: 0.72rem 1rem;
+  border-radius: 14px 14px 0 0;
+  color: var(--muted);
+  background: transparent;
+  box-shadow: none;
+}
+
+.sprite-editor-tab:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  color: var(--ink);
+  background: var(--secondary-bg);
+}
+
+.sprite-editor-tab.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .sprite-section-header {
   display: flex;
   align-items: center;

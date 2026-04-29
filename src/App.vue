@@ -327,6 +327,7 @@ const spriteReferenceInput = ref<HTMLInputElement | null>(null)
 const spritePreviewTab = ref<'character' | 'animation' | 'projects'>('character')
 const spritePreviewActionGroupId = ref('')
 const spritePreviewFrameIndex = ref(0)
+const spriteEditorTab = ref<'design' | 'actions' | 'advanced'>('design')
 
 const imagePrompt = ref('')
 const imageSize = ref(imageSizes[0])
@@ -6260,7 +6261,41 @@ onBeforeUnmount(() => {
 
         <section class="sprite-edit-column">
           <div class="sprite-workspace">
-            <section class="panel sprite-card">
+            <div class="panel sprite-editor-shell">
+              <div class="sprite-editor-tabs" role="tablist" aria-label="角色编辑分页">
+                <button
+                  class="sprite-editor-tab"
+                  :class="{ active: spriteEditorTab === 'design' }"
+                  type="button"
+                  role="tab"
+                  :aria-selected="spriteEditorTab === 'design'"
+                  @click="spriteEditorTab = 'design'"
+                >
+                  角色设计
+                </button>
+                <button
+                  class="sprite-editor-tab"
+                  :class="{ active: spriteEditorTab === 'actions' }"
+                  type="button"
+                  role="tab"
+                  :aria-selected="spriteEditorTab === 'actions'"
+                  @click="spriteEditorTab = 'actions'"
+                >
+                  动作系统
+                </button>
+                <button
+                  class="sprite-editor-tab"
+                  :class="{ active: spriteEditorTab === 'advanced' }"
+                  type="button"
+                  role="tab"
+                  :aria-selected="spriteEditorTab === 'advanced'"
+                  @click="spriteEditorTab = 'advanced'"
+                >
+                  高级设置
+                </button>
+              </div>
+
+            <section v-if="spriteEditorTab === 'design'" class="panel sprite-card">
               <div class="sprite-section-header">
                 <div>
                   <p class="eyebrow">Character Editor</p>
@@ -6452,7 +6487,7 @@ onBeforeUnmount(() => {
               </div>
             </section>
 
-            <section class="panel sprite-card">
+            <section v-if="spriteEditorTab === 'actions'" class="panel sprite-card">
               <div class="sprite-section-header">
                 <div>
                   <p class="eyebrow">Action System</p>
@@ -6509,7 +6544,7 @@ onBeforeUnmount(() => {
               </div>
             </section>
 
-            <section class="panel sprite-card">
+            <section v-if="spriteEditorTab === 'advanced'" class="panel sprite-card">
               <div class="sprite-section-header">
                 <div>
                   <p class="eyebrow">Advanced</p>
@@ -6526,6 +6561,7 @@ onBeforeUnmount(() => {
                 </label>
               </div>
             </section>
+            </div>
           </div>
         </section>
       </div>
