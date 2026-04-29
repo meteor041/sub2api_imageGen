@@ -2533,6 +2533,18 @@ function openSpriteFramePreview(imageId: string): void {
   openImageModal(image, imageIndex)
 }
 
+function openSpriteReferencePreview(): void {
+  const image = spriteReferenceImage.value
+  if (!image) {
+    return
+  }
+  const imageIndex = generatedImages.value.findIndex((item) => item.id === image.id)
+  if (imageIndex < 0) {
+    return
+  }
+  openImageModal(image, imageIndex)
+}
+
 function spriteActionGroupExportSeed(group: SpriteActionGroup): string {
   const characterName = spriteState.value?.character?.name?.trim() || 'sprite-character'
   return `${characterName}-${group.action}-${group.direction}`
@@ -6019,7 +6031,7 @@ onBeforeUnmount(() => {
                     :alt="spriteReferenceImage.prompt"
                     loading="lazy"
                     @error="handleGeneratedImageError($event, spriteReferenceImage)"
-                    @click="openImageModal(spriteReferenceImage, generatedImages.findIndex((image) => image.id === spriteReferenceImage.id))"
+                    @click="openSpriteReferencePreview"
                   />
                   <div class="sprite-reference-copy">
                     <strong>{{ spriteState?.character?.name || '已锁定参考图' }}</strong>
