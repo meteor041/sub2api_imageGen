@@ -542,7 +542,10 @@ interface PendingImageTask {
   prompt: string
   size: string
   source: 'chat' | 'direct'
+  workspaceType?: WorkspaceType
   assistantMessageId?: string
+  spriteActionGroupId?: string
+  spriteFrameIndex?: number
 }
 
 interface DisplayImageSource {
@@ -2059,7 +2062,8 @@ function readPendingImageTasks(): PendingImageTask[] {
       (task.mode === 'generate' || task.mode === 'edit') &&
       typeof task.prompt === 'string' &&
       typeof task.size === 'string' &&
-      (task.source === 'chat' || task.source === 'direct')
+      (task.source === 'chat' || task.source === 'direct') &&
+      (task.workspaceType === undefined || task.workspaceType === 'create' || task.workspaceType === 'ppt' || task.workspaceType === 'sprite')
     ))
   } catch {
     return []
@@ -2376,6 +2380,115 @@ async function handleRemoveSpriteActionGroup(actionGroupId: string): Promise<voi
   await persistSpriteWorkspaceState('动作分组已移除。')
 }
 
+async function handleGenerateSpriteActionFrame(actionGroupId: string): Promise<void> {
+  if (!currentConversationId.value || currentConversation.value?.workspaceType !== 'sprite') {
+    setError('请先选择角色资产任务。')
+    return
+  }
+  const referenceImage = spriteReferenceImage.value
+  if (!referenceImage) {
+    setError('请先锁定角色参考图。')
+    return
+  }
+  const apiKey = selectedKeySecret.value
+  if (!apiKey) {
+    setError('请先选择或创建一个 OpenAI 分组 API Key。')
+    return
+  }
+
+  const nextSpriteState = currentSpriteWorkspaceState() || emptySpriteWorkspaceState()
+  const actionGroup = nextSpriteState.actionGroups.find((group) => group.id === actionGroupId)
+  if (!actionGroup) {
+    setError('动作分组不存在。')
+    return
+  }
+
+  const frameIndex = nextSpriteFrameIndex(actionGroup)
+  if (frameIndex >= actionGroup.frameCount) {
+    setError('该动作分组的帧数已经生成完成。')
+    return
+  }
+
+  const prompt = buildSpriteActionPrompt(actionGroup, frameIndex)
+  imageBusy.value = true
+  imageTaskLabel.value = '正在创建动作帧任务...'
+  let pendingTask: PendingImageTask | null = null
+  try {
+    nextSpriteState.actionGroups = nextSpriteState.actionGroups.map((group) => (
+      group.id === actionGroupId
+        ? { ...group, status: 'generating' }
+        : group
+    ))
+    spriteState.value = nextSpriteState
+    await saveConversationSnapshot(
+      currentConversationId.value,
+      chatMessages.value,
+      generatedImages.value,
+      null,
+      'sprite',
+      nextSpriteState
+    )
+
+    const sourceImage: ImageTaskSourceImage = {
+      id: referenceImage.id,
+      name: `${referenceImage.id}.png`,
+      mimeType: referenceImage.mimeType || 'image/png',
+      ...(referenceImage.dataUrl ? { dataUrl: referenceImage.dataUrl } : {}),
+      ...(referenceImage.assetToken ? { assetToken: referenceImage.assetToken } : {}),
+      ...(referenceImage.image_url ? { image_url: referenceImage.image_url } : {}),
+      ...(referenceImage.remoteUrl ? { remoteUrl: referenceImage.remoteUrl } : {})
+    }
+
+    const { task_id } = await createImageTask(
+      apiKey,
+      buildImageTaskPayload(
+        prompt,
+        referenceImage.size || spriteConceptSize.value,
+        [sourceImage],
+        currentConversationId.value,
+        'direct'
+      )
+    )
+    pendingTask = {
+      taskId: task_id,
+      conversationId: currentConversationId.value,
+      mode: 'edit',
+      prompt,
+      size: referenceImage.size || spriteConceptSize.value,
+      source: 'direct',
+      workspaceType: 'sprite',
+      spriteActionGroupId: actionGroupId,
+      spriteFrameIndex: frameIndex
+    }
+    addPendingImageTask(pendingTask)
+    upsertLoadingTaskImage(pendingTask)
+    imageTaskLabel.value = `动作帧任务已创建（${task_id.slice(0, 8)}），正在轮询结果...`
+
+    const task = await waitForImageTask(task_id, (nextTask) => {
+      mergeStreamingTaskImages(nextTask)
+      imageTaskLabel.value = hasStreamingImageResult(nextTask)
+        ? '正在接收动作帧预览...'
+        : describeImageTaskStatus(nextTask.status)
+    })
+    if (task.status === 'failed') {
+      throw new Error(task.error || '动作帧生成失败')
+    }
+    await completePendingImageTask(pendingTask, task)
+    setSuccess('动作帧已生成并挂载到当前动作分组。')
+    await refreshBalanceOnly()
+  } catch (error) {
+    if (pendingTask) {
+      removePendingImageTask(pendingTask.taskId)
+      removeTaskImages(pendingTask.taskId)
+      await loadConversationById(pendingTask.conversationId, 'sprite')
+    }
+    setError(error instanceof Error ? error.message : '动作帧生成失败')
+  } finally {
+    imageBusy.value = false
+    imageTaskLabel.value = ''
+  }
+}
+
 async function handleSetSpriteReference(image: GeneratedImage): Promise<void> {
   const nextSpriteState = currentSpriteWorkspaceState() || emptySpriteWorkspaceState()
   const nextCharacter = buildSpriteCharacterProfile(nextSpriteState.character || null)
@@ -2406,6 +2519,118 @@ function spriteActionGroupTitle(group: SpriteActionGroup): string {
   const actionLabel = spriteActionPresets.find((item) => item.value === group.action)?.label || group.action
   const directionLabel = spriteDirectionPresets.find((item) => item.value === group.direction)?.label || group.direction
   return `${actionLabel} · ${directionLabel}`
+}
+
+function openSpriteFramePreview(imageId: string): void {
+  const imageIndex = generatedImages.value.findIndex((image) => image.id === imageId)
+  if (imageIndex < 0) {
+    return
+  }
+  const image = generatedImages.value[imageIndex]
+  if (!image) {
+    return
+  }
+  openImageModal(image, imageIndex)
+}
+
+function nextSpriteFrameIndex(group: SpriteActionGroup): number {
+  const taken = new Set(group.frames.map((frame) => frame.frameIndex))
+  for (let index = 0; index < group.frameCount; index += 1) {
+    if (!taken.has(index)) {
+      return index
+    }
+  }
+  return Math.max(0, group.frames.length)
+}
+
+function buildSpriteActionPrompt(group: SpriteActionGroup, frameIndex: number): string {
+  const character = spriteState.value?.character
+  const fields = [
+    character?.name ? `Character name: ${character.name}` : '',
+    character?.archetype ? `Role: ${character.archetype}` : '',
+    character?.description ? `Appearance: ${character.description}` : '',
+    character?.hair ? `Hair: ${character.hair}` : '',
+    character?.faceTraits ? `Face traits: ${character.faceTraits}` : '',
+    character?.costume ? `Costume: ${character.costume}` : '',
+    character?.accessories ? `Accessories and weapons: ${character.accessories}` : '',
+    character?.palette ? `Color palette: ${character.palette}` : '',
+    character?.bodyType ? `Body type: ${character.bodyType}` : '',
+    character?.proportions ? `Proportions: ${character.proportions}` : '',
+    character?.visualStyle ? `Visual style: ${character.visualStyle}` : '',
+    character?.negativePrompt ? `Avoid: ${character.negativePrompt}` : ''
+  ].filter(Boolean)
+
+  return [
+    'Based on the reference image, generate the same 2D game character in a new sprite-ready pose.',
+    fields.join('\n'),
+    `Action: ${group.action}`,
+    `Direction: ${group.direction}`,
+    `Frame: ${frameIndex + 1}/${group.frameCount}`,
+    'Keep the same character identity, same hairstyle, same costume, same palette, same proportions, same weapon design, and same 2D game art style.',
+    'Output requirements: centered full body character, plain or transparent-style background, clean silhouette, no extra characters, no cropped limbs, suitable for a sprite production pipeline.'
+  ].filter(Boolean).join('\n\n')
+}
+
+async function persistSpriteActionFrameFromTask(pendingTask: PendingImageTask, task: ImageTaskStatus): Promise<void> {
+  if (
+    pendingTask.workspaceType !== 'sprite' ||
+    !pendingTask.spriteActionGroupId ||
+    !Number.isInteger(pendingTask.spriteFrameIndex)
+  ) {
+    return
+  }
+
+  const images = extractGeneratedImagesFromTask(task)
+  const image = images[0]
+  if (!image) {
+    return
+  }
+
+  const payload = await getConversation(pendingTask.conversationId, 'sprite')
+  const nextSpriteState: SpriteWorkspaceState = payload.state.spriteState
+    ? {
+      character: payload.state.spriteState.character || null,
+      actionGroups: Array.isArray(payload.state.spriteState.actionGroups)
+        ? payload.state.spriteState.actionGroups.map((group) => ({
+          ...group,
+          frames: Array.isArray(group.frames) ? [...group.frames] : []
+        }))
+        : [],
+      sheets: Array.isArray(payload.state.spriteState.sheets) ? [...payload.state.spriteState.sheets] : []
+    }
+    : emptySpriteWorkspaceState()
+
+  nextSpriteState.actionGroups = nextSpriteState.actionGroups.map((group) => {
+    if (group.id !== pendingTask.spriteActionGroupId) {
+      return group
+    }
+    const nextFrames = [
+      ...group.frames.filter((frame) => frame.frameIndex !== pendingTask.spriteFrameIndex),
+      {
+        id: uid('sprite-frame'),
+        action: group.action,
+        direction: group.direction,
+        frameIndex: pendingTask.spriteFrameIndex!,
+        imageId: image.id,
+        prompt: image.prompt,
+        createdAt: Date.now()
+      }
+    ].sort((left, right) => left.frameIndex - right.frameIndex)
+    return {
+      ...group,
+      status: nextFrames.length >= group.frameCount ? 'ready' : 'generating',
+      frames: nextFrames
+    }
+  })
+
+  await saveConversationSnapshot(
+    pendingTask.conversationId,
+    payload.state.chatMessages || [],
+    normalizeGeneratedImages(payload.state.generatedImages || []),
+    null,
+    'sprite',
+    nextSpriteState
+  )
 }
 
 function buildSpriteConceptPrompt(): string {
@@ -2479,7 +2704,8 @@ async function handleGenerateSpriteConcept(): Promise<void> {
       mode: 'generate',
       prompt,
       size: spriteConceptSize.value,
-      source: 'direct'
+      source: 'direct',
+      workspaceType: 'sprite'
     }
     addPendingImageTask(pendingTask)
     upsertLoadingTaskImage(pendingTask)
@@ -3847,7 +4073,8 @@ function extractGeneratedImagesFromTask(task: ImageTaskStatus): GeneratedImage[]
 }
 
 async function archivePendingImageFailure(pendingTask: PendingImageTask, message: string): Promise<void> {
-  const payload = await getConversation(pendingTask.conversationId, 'create')
+  const workspaceType = pendingTask.workspaceType || 'create'
+  const payload = await getConversation(pendingTask.conversationId, workspaceType)
   let nextMessages = payload.state.chatMessages || []
   const nextImages = normalizeGeneratedImages(
     (payload.state.generatedImages || []).filter((image) => !String(image?.id || '').startsWith(taskImageIdPrefix(pendingTask.taskId)))
@@ -3859,13 +4086,32 @@ async function archivePendingImageFailure(pendingTask: PendingImageTask, message
     createdAt: Date.now()
   }
   nextMessages = replaceOrAppendMessage(nextMessages, failedMessage)
+  const nextSpriteState = payload.state.spriteState
+    ? {
+      character: payload.state.spriteState.character || null,
+      actionGroups: Array.isArray(payload.state.spriteState.actionGroups)
+        ? payload.state.spriteState.actionGroups.map((group) => ({
+          ...group,
+          frames: Array.isArray(group.frames) ? [...group.frames] : []
+        }))
+        : [],
+      sheets: Array.isArray(payload.state.spriteState.sheets) ? [...payload.state.spriteState.sheets] : []
+    }
+    : null
+  if (workspaceType === 'sprite' && nextSpriteState && pendingTask.spriteActionGroupId) {
+    nextSpriteState.actionGroups = nextSpriteState.actionGroups.map((group) => (
+      group.id === pendingTask.spriteActionGroupId
+        ? { ...group, status: 'failed' }
+        : group
+    ))
+  }
   await saveConversationSnapshot(
     pendingTask.conversationId,
     nextMessages,
     nextImages,
     payload.state.pptState || null,
     normalizePayloadWorkspaceType(payload.state.workspaceType),
-    payload.state.spriteState || null
+    nextSpriteState
   )
 }
 
@@ -3916,10 +4162,17 @@ async function completePendingImageTask(
     return false
   }
 
+  if (pendingTask.workspaceType === 'sprite') {
+    await persistSpriteActionFrameFromTask(pendingTask, task)
+  }
+
   if (currentConversationId.value === pendingTask.conversationId) {
-    await loadConversationById(pendingTask.conversationId)
+    await loadConversationById(
+      pendingTask.conversationId,
+      pendingTask.workspaceType || currentConversation.value?.workspaceType || 'create'
+    )
   } else {
-    await refreshConversationIndex()
+    await refreshConversationIndex(pendingTask.workspaceType || 'create')
   }
   return true
 }
@@ -3952,7 +4205,7 @@ async function monitorPendingImageTask(pendingTask: PendingImageTask): Promise<v
     })
     const completed = await completePendingImageTask(pendingTask, task)
     await refreshBalanceOnly()
-    await refreshConversationIndex()
+    await refreshConversationIndex(pendingTask.workspaceType || 'create')
     if (completed) {
       setSuccess(currentConversationId.value === pendingTask.conversationId
         ? '图片任务已完成，结果已保存到当前会话。'
@@ -5728,11 +5981,27 @@ onBeforeUnmount(() => {
                   <article v-for="group in spriteState?.actionGroups || []" :key="group.id" class="sprite-action-item">
                     <div>
                       <strong>{{ spriteActionGroupTitle(group) }}</strong>
-                      <span>{{ group.frameCount }} 帧 · {{ group.frames.length }} 已挂载</span>
+                      <span>{{ group.frameCount }} 帧 · {{ group.frames.length }} 已挂载 · {{ group.status }}</span>
+                      <div v-if="group.frames.length > 0" class="sprite-frame-chips">
+                        <button
+                          v-for="frame in group.frames"
+                          :key="frame.id"
+                          class="sprite-frame-chip"
+                          type="button"
+                          @click="openSpriteFramePreview(frame.imageId)"
+                        >
+                          第 {{ frame.frameIndex + 1 }} 帧
+                        </button>
+                      </div>
                     </div>
-                    <button class="ghost mini" type="button" :disabled="spriteWorkspaceBusy" @click="handleRemoveSpriteActionGroup(group.id)">
-                      删除
-                    </button>
+                    <div class="sprite-action-item-actions">
+                      <button class="secondary mini" type="button" :disabled="imageBusy || spriteWorkspaceBusy || !spriteReferenceImage" @click="handleGenerateSpriteActionFrame(group.id)">
+                        生成下一帧
+                      </button>
+                      <button class="ghost mini" type="button" :disabled="spriteWorkspaceBusy" @click="handleRemoveSpriteActionGroup(group.id)">
+                        删除
+                      </button>
+                    </div>
                   </article>
                   <p v-if="(spriteState?.actionGroups || []).length === 0" class="empty">先保存角色设定，再为该角色规划待机、行走、攻击等动作分组。</p>
                 </div>
